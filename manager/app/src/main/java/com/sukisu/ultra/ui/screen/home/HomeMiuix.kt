@@ -372,15 +372,17 @@ private fun ActiveStatusCard(
         pressFeedbackType = PressFeedbackType.Tilt
     ) {
         Box {
-            Icon(
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .offset(27.dp, 31.dp)
-                    .size(150.dp),
-                imageVector = Icons.Rounded.CheckCircleOutline,
-                tint = accentColor.copy(alpha = if (isDynamicColor) 0.8f else 1f),
-                contentDescription = null
-            )
+            if (!(state.homeCardImagePath.isNotEmpty() && state.hideHomeCardDecoration)) {
+                Icon(
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .offset(27.dp, 31.dp)
+                        .size(150.dp),
+                    imageVector = Icons.Rounded.CheckCircleOutline,
+                    tint = accentColor.copy(alpha = if (isDynamicColor) 0.8f else 1f),
+                    contentDescription = null
+                )
+            }
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -422,20 +424,22 @@ private fun ActiveStatusCard(
                     }
                 }
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(
-                        text = customText(CustomTextKey.HOME_STATUS_WORKING),
-                        fontSize = 36.sp,
-                        fontWeight = FontWeight.Bold,
-                    )
-                    Text(
-                        text = stringResource(
-                            R.string.home_working_version,
-                            "${state.ksuVersion}-${state.kernelUAPIVersion}"
-                        ),
-                        fontSize = 14.sp,
-                        fontFamily = FontFamily.Monospace,
-                        color = colorScheme.onSurfaceVariantSummary,
-                    )
+                    if (!(state.homeCardImagePath.isNotEmpty() && state.hideHomeCardStatusText)) {
+                        Text(
+                            text = customText(CustomTextKey.HOME_STATUS_WORKING),
+                            fontSize = 36.sp,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        Text(
+                            text = stringResource(
+                                R.string.home_working_version,
+                                "${state.ksuVersion}-${state.kernelUAPIVersion}"
+                            ),
+                            fontSize = 14.sp,
+                            fontFamily = FontFamily.Monospace,
+                            color = colorScheme.onSurfaceVariantSummary,
+                        )
+                    }
                 }
             }
         }

@@ -23,6 +23,10 @@ interface SettingsRepository {
     var customHomeTitle: String
     var customTexts: Map<String, String>
     var homeCardImagePath: String
+    /** Hide the working text and version line on the home status card while a card image is set. */
+    var hideHomeCardStatusText: Boolean
+    /** Hide the check icon (Miuix) or ring decoration (Material) on the home status card. */
+    var hideHomeCardDecoration: Boolean
     var uiMode: String
     var appLanguage: String
     var checkUpdate: Boolean

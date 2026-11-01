@@ -26,6 +26,8 @@ import com.sukisu.ultra.data.repository.CiManagerUpdater
 import com.sukisu.ultra.data.repository.SettingsRepository
 import com.sukisu.ultra.data.repository.SettingsRepositoryImpl
 import com.sukisu.ultra.data.repository.KEY_CUSTOM_HOME_TITLE
+import com.sukisu.ultra.data.repository.KEY_HIDE_HOME_CARD_DECORATION
+import com.sukisu.ultra.data.repository.KEY_HIDE_HOME_CARD_STATUS_TEXT
 import com.sukisu.ultra.data.repository.KEY_HOME_CARD_IMAGE_PATH
 import java.io.File
 import com.sukisu.ultra.getKernelVersion
@@ -58,6 +60,12 @@ class HomeViewModel(
         }
         if (key == null || key == KEY_HOME_CARD_IMAGE_PATH) {
             updateContent { it.copy(homeCardImagePath = existingHomeCardImage()) }
+        }
+        if (key == null || key == KEY_HIDE_HOME_CARD_STATUS_TEXT) {
+            updateContent { it.copy(hideHomeCardStatusText = settingsRepo.hideHomeCardStatusText) }
+        }
+        if (key == null || key == KEY_HIDE_HOME_CARD_DECORATION) {
+            updateContent { it.copy(hideHomeCardDecoration = settingsRepo.hideHomeCardDecoration) }
         }
         if (key == null || key == "show_ai_home_card") {
             updateContent { it.copy(showAiHomeCard = settingsRepo.showAiHomeCard) }
@@ -236,6 +244,8 @@ class HomeViewModel(
             checkCiUpdateEnabled = settingsRepo.checkUpdate && settingsRepo.checkCiUpdate,
             customHomeTitle = settingsRepo.customHomeTitle,
             homeCardImagePath = existingHomeCardImage(),
+            hideHomeCardStatusText = settingsRepo.hideHomeCardStatusText,
+            hideHomeCardDecoration = settingsRepo.hideHomeCardDecoration,
             showAiHomeCard = settingsRepo.showAiHomeCard,
             showFullStatus = ksuApp.getSharedPreferences("settings", Context.MODE_PRIVATE)
                 .getBoolean("show_fingerprint", true),

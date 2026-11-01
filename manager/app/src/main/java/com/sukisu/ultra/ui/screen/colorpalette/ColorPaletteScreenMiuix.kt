@@ -62,6 +62,7 @@ import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Pin
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Restore
+import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.Style
 import androidx.compose.material.icons.rounded.Wallpaper
 import androidx.compose.material.icons.rounded.Fingerprint
@@ -208,6 +209,8 @@ fun ColorPaletteScreenMiuix(
         state.pageScale,
         state.customHomeTitle,
         state.homeCardImagePath,
+        state.hideHomeCardStatusText,
+        state.hideHomeCardDecoration,
     ) {
         ThemePreviewSpec(
             keyColor = state.keyColor,
@@ -226,6 +229,8 @@ fun ColorPaletteScreenMiuix(
             pageScale = state.pageScale,
             customHomeTitle = state.customHomeTitle,
             homeCardImagePath = state.homeCardImagePath,
+            hideHomeCardText = state.hideHomeCardStatusText,
+            hideHomeCardDecoration = state.hideHomeCardDecoration,
         )
     }
     val exportThemeLauncher = rememberLauncherForActivityResult(
@@ -672,6 +677,34 @@ fun ColorPaletteScreenMiuix(
                                     },
                                 )
                                 if (state.homeCardImagePath.isNotBlank()) {
+                                    SwitchPreference(
+                                        title = stringResource(id = R.string.settings_hide_home_card_decoration),
+                                        summary = stringResource(R.string.settings_hide_home_card_decoration_summary),
+                                        startAction = {
+                                            Icon(
+                                                Icons.Rounded.Star,
+                                                modifier = Modifier.padding(end = 8.dp),
+                                                contentDescription = stringResource(R.string.settings_hide_home_card_decoration),
+                                                tint = colorScheme.onBackground,
+                                            )
+                                        },
+                                        checked = state.hideHomeCardDecoration,
+                                        onCheckedChange = actions.onSetHideHomeCardDecoration,
+                                    )
+                                    SwitchPreference(
+                                        title = stringResource(id = R.string.settings_hide_home_card_status_text),
+                                        summary = stringResource(R.string.settings_hide_home_card_status_text_summary),
+                                        startAction = {
+                                            Icon(
+                                                Icons.Rounded.Home,
+                                                modifier = Modifier.padding(end = 8.dp),
+                                                contentDescription = stringResource(R.string.settings_hide_home_card_status_text),
+                                                tint = colorScheme.onBackground,
+                                            )
+                                        },
+                                        checked = state.hideHomeCardStatusText,
+                                        onCheckedChange = actions.onSetHideHomeCardStatusText,
+                                    )
                                     ArrowPreference(
                                         title = stringResource(id = R.string.settings_home_card_image_clear),
                                         summary = stringResource(R.string.settings_home_card_image_clear_summary),

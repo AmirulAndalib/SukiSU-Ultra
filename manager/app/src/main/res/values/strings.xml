@@ -919,6 +919,10 @@
     <string name="settings_home_card_image_set">Image selected</string>
     <string name="settings_home_card_image_clear">Remove card background</string>
     <string name="settings_home_card_image_clear_summary">Restore the solid card color</string>
+    <string name="settings_hide_home_card_status_text">Hide status text</string>
+    <string name="settings_hide_home_card_status_text_summary">Keep the status tags and hide the working text and version</string>
+    <string name="settings_hide_home_card_decoration">Hide card decoration</string>
+    <string name="settings_hide_home_card_decoration_summary">Hide the check icon or ring decoration on the status card</string>
     <string name="home_card_image_failed">Could not load that image</string>
     <string name="background_crop_title">Crop Background</string>
     <string name="background_crop_done">Done</string>

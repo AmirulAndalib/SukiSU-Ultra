@@ -76,6 +76,7 @@ import androidx.compose.material.icons.rounded.Opacity
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Pin
 import androidx.compose.material.icons.rounded.Restore
+import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.WaterDrop
 import androidx.compose.material.icons.rounded.Style
 import androidx.compose.material.icons.rounded.Warning
@@ -270,6 +271,8 @@ fun ColorPaletteScreenMaterial(
                     state.pageScale,
                     state.customHomeTitle,
                     state.homeCardImagePath,
+                    state.hideHomeCardStatusText,
+                    state.hideHomeCardDecoration,
                 ) {
                     ThemePreviewSpec(
                         keyColor = currentKeyColor,
@@ -288,6 +291,8 @@ fun ColorPaletteScreenMaterial(
                         pageScale = state.pageScale,
                         customHomeTitle = state.customHomeTitle,
                         homeCardImagePath = state.homeCardImagePath,
+                        hideHomeCardText = state.hideHomeCardStatusText,
+                        hideHomeCardDecoration = state.hideHomeCardDecoration,
                     )
                 }
                 ThemePreviewMaterial(spec = previewSpec)
@@ -658,6 +663,24 @@ fun ColorPaletteScreenMaterial(
                         )
                     }
                     if (state.homeCardImagePath.isNotBlank()) {
+                        item(visible = appearanceSectionExpanded) {
+                            SegmentedSwitchItem(
+                                icon = Icons.Rounded.Star,
+                                title = stringResource(R.string.settings_hide_home_card_decoration),
+                                summary = stringResource(R.string.settings_hide_home_card_decoration_summary),
+                                checked = state.hideHomeCardDecoration,
+                                onCheckedChange = actions.onSetHideHomeCardDecoration,
+                            )
+                        }
+                        item(visible = appearanceSectionExpanded) {
+                            SegmentedSwitchItem(
+                                icon = Icons.Rounded.Home,
+                                title = stringResource(R.string.settings_hide_home_card_status_text),
+                                summary = stringResource(R.string.settings_hide_home_card_status_text_summary),
+                                checked = state.hideHomeCardStatusText,
+                                onCheckedChange = actions.onSetHideHomeCardStatusText,
+                            )
+                        }
                         item(visible = appearanceSectionExpanded) {
                             SegmentedListItem(
                                 onClick = actions.onClearHomeCardImage,

@@ -37,6 +37,8 @@ data class ColorPaletteUiState(
     val pageScale: Float = 1f,
     val customHomeTitle: String = "",
     val homeCardImagePath: String = "",
+    val hideHomeCardStatusText: Boolean = false,
+    val hideHomeCardDecoration: Boolean = false,
     // The rows below the preview.
     val themeMode: Int = 0,
     val colorStyle: String = "",
@@ -86,6 +88,8 @@ data class ColorPaletteScreenActions(
     val onClearCustomBackground: (android.content.Context) -> Unit = {},
     val onPickHomeCardImage: (android.content.Context, android.net.Uri) -> Unit = { _, _ -> },
     val onClearHomeCardImage: () -> Unit = {},
+    val onSetHideHomeCardStatusText: (Boolean) -> Unit = {},
+    val onSetHideHomeCardDecoration: (Boolean) -> Unit = {},
     val onSetUseSystemWallpaper: (android.content.Context, Boolean) -> Unit = { _, _ -> },
     val onSetExtractColorFromBackground: (Boolean) -> Unit = {},
     val onSetCardBackgroundAlphaPercent: (Int) -> Unit = {},

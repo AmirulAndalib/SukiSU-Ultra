@@ -158,6 +158,8 @@ internal data class ThemePreviewSpec(
     val pageScale: Float = 1f,
     val customHomeTitle: String = "",
     val homeCardImagePath: String = "",
+    val hideHomeCardText: Boolean = false,
+    val hideHomeCardDecoration: Boolean = false,
 )
 
 private const val PreviewDesignWidthDp = 360f
@@ -627,15 +629,17 @@ private fun MiuixPreviewHeroCard(spec: ThemePreviewSpec) {
         ),
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            MiuixIcon(
-                imageVector = Icons.Rounded.CheckCircleOutline,
-                contentDescription = null,
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .offset(x = 20.dp, y = 22.dp)
-                    .size(112.dp),
-                tint = accentColor.copy(alpha = if (spec.miuixMonet) 0.8f else 1f),
-            )
+            if (!(spec.homeCardImagePath.isNotEmpty() && spec.hideHomeCardDecoration)) {
+                MiuixIcon(
+                    imageVector = Icons.Rounded.CheckCircleOutline,
+                    contentDescription = null,
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .offset(x = 20.dp, y = 22.dp)
+                        .size(112.dp),
+                    tint = accentColor.copy(alpha = if (spec.miuixMonet) 0.8f else 1f),
+                )
+            }
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -655,18 +659,20 @@ private fun MiuixPreviewHeroCard(spec: ThemePreviewSpec) {
                     )
                 }
                 Column {
-                    MiuixText(
-                        text = stringResource(R.string.home_working),
-                        fontSize = 30.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = colors.onSurface,
-                    )
-                    MiuixText(
-                        text = BuildConfig.VERSION_NAME,
-                        fontSize = 10.sp,
-                        fontFamily = FontFamily.Monospace,
-                        color = colors.onSurfaceVariantSummary,
-                    )
+                    if (!(spec.homeCardImagePath.isNotEmpty() && spec.hideHomeCardText)) {
+                        MiuixText(
+                            text = stringResource(R.string.home_working),
+                            fontSize = 30.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = colors.onSurface,
+                        )
+                        MiuixText(
+                            text = BuildConfig.VERSION_NAME,
+                            fontSize = 10.sp,
+                            fontFamily = FontFamily.Monospace,
+                            color = colors.onSurfaceVariantSummary,
+                        )
+                    }
                 }
             }
         }
@@ -1012,7 +1018,7 @@ private fun MaterialPreviewHeroCard(spec: ThemePreviewSpec) {
         color = if (cardImagePainter != null) Color.Transparent else backgroundAwareColor(colors.primary),
     ) {
         Box(
-            modifier = if (cardImagePainter != null) {
+            modifier = if (spec.homeCardImagePath.isNotEmpty() && spec.hideHomeCardDecoration) {
                 Modifier.fillMaxSize()
             } else {
                 Modifier
@@ -1039,16 +1045,18 @@ private fun MaterialPreviewHeroCard(spec: ThemePreviewSpec) {
                     )
                 }
                 Column {
-                    MaterialText(
-                        text = stringResource(R.string.home_working),
-                        style = MaterialTheme.typography.displaySmall,
-                        fontWeight = FontWeight.Black,
-                    )
-                    MaterialText(
-                        text = BuildConfig.VERSION_NAME,
-                        style = MaterialTheme.typography.labelMedium,
-                        fontFamily = FontFamily.Monospace,
-                    )
+                    if (!(spec.homeCardImagePath.isNotEmpty() && spec.hideHomeCardText)) {
+                        MaterialText(
+                            text = stringResource(R.string.home_working),
+                            style = MaterialTheme.typography.displaySmall,
+                            fontWeight = FontWeight.Black,
+                        )
+                        MaterialText(
+                            text = BuildConfig.VERSION_NAME,
+                            style = MaterialTheme.typography.labelMedium,
+                            fontFamily = FontFamily.Monospace,
+                        )
+                    }
                 }
             }
         }

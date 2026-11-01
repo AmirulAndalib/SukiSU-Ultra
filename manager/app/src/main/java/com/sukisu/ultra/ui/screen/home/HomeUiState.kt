@@ -53,6 +53,8 @@ data class HomeUiState(
     val showAiHomeCard: Boolean = false,
     val customHomeTitle: String = "",
     val homeCardImagePath: String = "",
+    val hideHomeCardStatusText: Boolean = false,
+    val hideHomeCardDecoration: Boolean = false,
 ) {
     val isSELinuxPermissive: Boolean
         get() = systemInfo.selinuxStatus == "Permissive"

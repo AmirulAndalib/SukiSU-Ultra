@@ -98,6 +98,8 @@ data class SettingsUiState(
     val customHomeTitle: String = "",
     val customTexts: Map<String, String> = emptyMap(),
     val homeCardImagePath: String = "",
+    val hideHomeCardStatusText: Boolean = false,
+    val hideHomeCardDecoration: Boolean = false,
     val pendingImportTheme: com.sukisu.ultra.ui.util.ImportedTheme? = null,
     val showThemeImportDialog: Boolean = false,
 )

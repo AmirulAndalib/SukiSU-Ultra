@@ -243,12 +243,14 @@ object AiThemeController : AiThemeService {
         read()
     }
 
-    /** Equivalent to Settings > Appearance "Reset" (card alpha/blur/scrim only). */
+    /** Equivalent to Settings > Appearance "Reset" (card alpha/blur/scrim and home card text). */
     override suspend fun resetAppearance(): String = withContext(Dispatchers.IO) {
         repo.cardBackgroundAlphaPercent = ImageStorage.DEFAULT_CARD_ALPHA
         repo.customBackgroundBlurPercent = ImageStorage.defaultBackgroundBlurPercent(ksuApp)
         repo.customBackgroundScrimPercent = ImageStorage.DEFAULT_BACKGROUND_SCRIM
-        "Appearance reset: card alpha, background blur and scrim restored to defaults."
+        repo.hideHomeCardStatusText = false
+        repo.hideHomeCardDecoration = false
+        "Appearance reset: card alpha, background blur, scrim and home card text restored to defaults."
     }
 
     override suspend fun resetAllCustomTexts(): String = withContext(Dispatchers.IO) {
@@ -269,6 +271,8 @@ object AiThemeController : AiThemeService {
             "home_card", "home", "card" -> {
                 ImageStorage.clearHomeCardImage(ksuApp)
                 repo.homeCardImagePath = ""
+                repo.hideHomeCardStatusText = false
+                repo.hideHomeCardDecoration = false
                 "The home card image was removed."
             }
 
@@ -330,6 +334,8 @@ object AiThemeController : AiThemeService {
             customBackgroundScrimPercent = repo.customBackgroundScrimPercent,
             hasBackground = currentBackgroundFile() != null,
             hasCardBackground = currentHomeCardFile() != null,
+            hideHomeCardStatusText = repo.hideHomeCardStatusText,
+            hideHomeCardDecoration = repo.hideHomeCardDecoration,
             uiMode = repo.uiMode,
             appIconId = repo.appIconId.takeIf { it in builtinIconIds } ?: BuiltinAppIcons.DEFAULT_ID,
             enableFloatingBottomBar = repo.enableFloatingBottomBar,

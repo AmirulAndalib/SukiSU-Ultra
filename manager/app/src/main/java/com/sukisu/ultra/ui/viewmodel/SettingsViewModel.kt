@@ -56,6 +56,8 @@ class SettingsViewModel(
         customHomeTitle = repo.customHomeTitle,
         customTexts = repo.customTexts,
         homeCardImagePath = repo.homeCardImagePath,
+        hideHomeCardStatusText = repo.hideHomeCardStatusText,
+        hideHomeCardDecoration = repo.hideHomeCardDecoration,
     ))
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
 
@@ -171,6 +173,8 @@ class SettingsViewModel(
                     customHomeTitle = repo.customHomeTitle,
                     customTexts = repo.customTexts,
         homeCardImagePath = repo.homeCardImagePath,
+                    hideHomeCardStatusText = repo.hideHomeCardStatusText,
+                    hideHomeCardDecoration = repo.hideHomeCardDecoration,
                     themeMode = themeMode,
                     miuixMonet = miuixMonet,
                     keyColor = keyColor,
@@ -482,8 +486,26 @@ class SettingsViewModel(
         viewModelScope.launch {
             ImageStorage.clearHomeCardImage(ksuApp)
             repo.homeCardImagePath = ""
-            _uiState.update { it.copy(homeCardImagePath = "") }
+            repo.hideHomeCardStatusText = false
+            repo.hideHomeCardDecoration = false
+            _uiState.update {
+                it.copy(
+                    homeCardImagePath = "",
+                    hideHomeCardStatusText = false,
+                    hideHomeCardDecoration = false,
+                )
+            }
         }
+    }
+
+    fun setHideHomeCardStatusText(hidden: Boolean) {
+        repo.hideHomeCardStatusText = hidden
+        _uiState.update { it.copy(hideHomeCardStatusText = hidden) }
+    }
+
+    fun setHideHomeCardDecoration(hidden: Boolean) {
+        repo.hideHomeCardDecoration = hidden
+        _uiState.update { it.copy(hideHomeCardDecoration = hidden) }
     }
 
     fun exportImages(context: Context, uri: Uri) {
@@ -552,6 +574,8 @@ class SettingsViewModel(
                 customBackgroundScrimPercent = state.customBackgroundScrimPercent,
                 hasBackground = backgroundFile != null,
                 hasCardBackground = cardBackgroundFile != null,
+                hideHomeCardStatusText = state.hideHomeCardStatusText,
+                hideHomeCardDecoration = state.hideHomeCardDecoration,
                 uiMode = state.uiMode,
                 appIconId = exportedIconId,
                 enableFloatingBottomBar = state.enableFloatingBottomBar,
@@ -643,6 +667,7 @@ class SettingsViewModel(
         var blurPercent = current.customBackgroundBlurPercent
         var scrimPercent = current.customBackgroundScrimPercent
         var targetUiMode = current.uiMode
+        var hideHomeCardDecoration = current.hideHomeCardDecoration
 
         if (options.importAppearance) {
             themeMode = data.themeMode?.takeIf { it in 0..6 } ?: current.themeMode
@@ -671,6 +696,11 @@ class SettingsViewModel(
             repo.cardBackgroundAlphaPercent = cardAlpha
             repo.customBackgroundBlurPercent = blurPercent
             repo.customBackgroundScrimPercent = scrimPercent
+
+            data.hideHomeCardDecoration?.let {
+                repo.hideHomeCardDecoration = it
+                hideHomeCardDecoration = it
+            }
         }
 
         var floatingBottomBar = current.enableFloatingBottomBar
@@ -707,6 +737,7 @@ class SettingsViewModel(
 
         var backgroundUri = current.customBackgroundUri
         var homeCardImagePath = current.homeCardImagePath
+        var hideHomeCardStatusText = current.hideHomeCardStatusText
         if (options.importImages) {
             if (imported.backgroundPath != null) {
                 backgroundUri = ImageStorage.replace(context, File(imported.backgroundPath)) ?: ""
@@ -718,6 +749,10 @@ class SettingsViewModel(
                 val cardPath = ImageStorage.replaceHomeCardImage(context, File(imported.cardBackgroundPath)) ?: ""
                 repo.homeCardImagePath = cardPath
                 homeCardImagePath = cardPath
+            }
+            data.hideHomeCardStatusText?.let {
+                repo.hideHomeCardStatusText = it
+                hideHomeCardStatusText = it
             }
         } else {
             // Discard unselected imported images
@@ -781,6 +816,8 @@ class SettingsViewModel(
                 customBackgroundUri = backgroundUri,
                 customBackgroundUpdatedAt = repo.customBackgroundUpdatedAt,
                 homeCardImagePath = homeCardImagePath,
+                hideHomeCardStatusText = hideHomeCardStatusText,
+                hideHomeCardDecoration = hideHomeCardDecoration,
                 useSystemWallpaper = if (options.importImages && imported.backgroundPath != null) false else it.useSystemWallpaper,
                 systemWallpaperPath = if (options.importImages && imported.backgroundPath != null) "" else it.systemWallpaperPath,
                 enableFloatingBottomBar = floatingBottomBar,
@@ -798,6 +835,8 @@ class SettingsViewModel(
             repo.cardBackgroundAlphaPercent = ImageStorage.DEFAULT_CARD_ALPHA
             repo.customBackgroundBlurPercent = defaultBlur
             repo.customBackgroundScrimPercent = ImageStorage.DEFAULT_BACKGROUND_SCRIM
+            repo.hideHomeCardStatusText = false
+            repo.hideHomeCardDecoration = false
 
             // Theme colors, dynamic color and the custom background image are user choices.
             _uiState.update {
@@ -805,6 +844,8 @@ class SettingsViewModel(
                     cardBackgroundAlphaPercent = ImageStorage.DEFAULT_CARD_ALPHA,
                     customBackgroundBlurPercent = defaultBlur,
                     customBackgroundScrimPercent = ImageStorage.DEFAULT_BACKGROUND_SCRIM,
+                    hideHomeCardStatusText = false,
+                    hideHomeCardDecoration = false,
                 )
             }
 
@@ -1298,6 +1339,8 @@ class SettingsViewModel(
             pageScale = pageScale,
             customHomeTitle = customHomeTitle,
             homeCardImagePath = homeCardImagePath,
+            hideHomeCardStatusText = hideHomeCardStatusText,
+            hideHomeCardDecoration = hideHomeCardDecoration,
             themeMode = themeMode,
             colorStyle = colorStyle,
             colorSpec = colorSpec,

@@ -305,6 +305,7 @@ private fun ActiveStatusCard(
         )
     }
 
+    val hideCardDecoration = state.homeCardImagePath.isNotEmpty() && state.hideHomeCardDecoration
     Surface(
         modifier = Modifier
             .fillMaxWidth()
@@ -322,7 +323,7 @@ private fun ActiveStatusCard(
         onClick = onClick,
     ) {
         Box(
-            modifier = if (cardImagePainter != null) {
+            modifier = if (hideCardDecoration) {
                 Modifier
             } else {
                 Modifier.drawBehind { drawStatusRings(contentColor.copy(alpha = 0.18f)) }
@@ -369,16 +370,18 @@ private fun ActiveStatusCard(
                     }
                 }
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(
-                        text = customText(CustomTextKey.HOME_STATUS_WORKING),
-                        style = MaterialTheme.typography.displaySmall,
-                        fontWeight = FontWeight.Black,
-                    )
-                    Text(
-                        text = stringResource(R.string.home_working_version, "${state.ksuVersion}-${state.kernelUAPIVersion}"),
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontFamily = FontFamily.Monospace,
-                    )
+                    if (!(state.homeCardImagePath.isNotEmpty() && state.hideHomeCardStatusText)) {
+                        Text(
+                            text = customText(CustomTextKey.HOME_STATUS_WORKING),
+                            style = MaterialTheme.typography.displaySmall,
+                            fontWeight = FontWeight.Black,
+                        )
+                        Text(
+                            text = stringResource(R.string.home_working_version, "${state.ksuVersion}-${state.kernelUAPIVersion}"),
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontFamily = FontFamily.Monospace,
+                        )
+                    }
                 }
             }
         }

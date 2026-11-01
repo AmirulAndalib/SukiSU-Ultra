@@ -37,6 +37,8 @@ data class ThemePackageData(
     val customBackgroundScrimPercent: Int? = null,
     val hasBackground: Boolean? = null,
     val hasCardBackground: Boolean? = null,
+    val hideHomeCardStatusText: Boolean? = null,
+    val hideHomeCardDecoration: Boolean? = null,
     val uiMode: String? = null,
     val appIconId: String? = null,
     val enableFloatingBottomBar: Boolean? = null,
