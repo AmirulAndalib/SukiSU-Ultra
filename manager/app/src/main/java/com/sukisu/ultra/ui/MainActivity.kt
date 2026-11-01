@@ -30,6 +30,7 @@ import androidx.core.animation.doOnEnd
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import androidx.compose.ui.platform.LocalContext
+import com.sukisu.ultra.ui.theme.LocalAppBackgroundBackdrop
 import com.sukisu.ultra.ui.theme.LocalBackgroundImagePath
 import com.sukisu.ultra.ui.theme.LocalCardBackgroundAlpha
 import java.io.File
@@ -278,6 +279,12 @@ class MainActivity : ComponentActivity() {
             val density = remember(systemDensity, uiState.pageScale) {
                 Density(systemDensity.density * uiState.pageScale, systemDensity.fontScale)
             }
+            // Bars sample the page backdrop, which is transparent wherever the page paints nothing.
+            // Blurring that reads as black, so over a custom background they also need the wallpaper:
+            // capture it here, where only the background image is drawn, and combine it underneath.
+            val appBackgroundBackdrop = rememberLayerBackdrop()
+            val captureAppBackground = uiMode == UiMode.Miuix && uiState.enableBlur &&
+                uiState.customBackgroundUri.isNotEmpty()
 
             CompositionLocalProvider(
                 LocalNavigator provides navigator,
@@ -289,6 +296,7 @@ class MainActivity : ComponentActivity() {
                 LocalEnableNavigationBadge provides uiState.enableNavigationBadge,
                 LocalModuleDescriptionMaxLines provides uiState.moduleDescriptionMaxLines,
                 LocalBackgroundImagePath provides uiState.customBackgroundUri,
+                LocalAppBackgroundBackdrop provides appBackgroundBackdrop.takeIf { captureAppBackground },
                 LocalCardBackgroundAlpha provides (uiState.cardBackgroundAlphaPercent / 100f),
                 LocalUiMode provides uiMode,
                 LocalCustomTexts provides uiState.customTexts,
@@ -486,6 +494,11 @@ class MainActivity : ComponentActivity() {
                             ImageStorage.BACKGROUND_BLUR_MAX_RADIUS_DP * uiState.customBackgroundBlurPercent / 100f
                         ).dp
                         Crossfade(
+                            modifier = if (captureAppBackground) {
+                                Modifier.layerBackdrop(appBackgroundBackdrop)
+                            } else {
+                                Modifier
+                            },
                             targetState = uiState.customBackgroundUri to uiState.customBackgroundUpdatedAt,
                             label = "global_background",
                         ) { (path, _) ->
