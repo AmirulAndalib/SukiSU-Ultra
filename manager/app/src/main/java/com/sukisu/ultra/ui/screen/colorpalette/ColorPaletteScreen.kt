@@ -57,6 +57,10 @@ fun ColorPaletteScreen(section: String? = null) {
         onSetShowAiHomeCard = viewModel::setShowAiHomeCard,
         onOpenAppIcon = { navigator.push(Route.AppIcon) },
         onSetBackgroundAppearanceExpanded = viewModel::setBackgroundAppearanceExpanded,
+        onSetBackgroundSectionExpanded = viewModel::setBackgroundSectionExpanded,
+        onSetThemePackageSectionExpanded = viewModel::setThemePackageSectionExpanded,
+        onSetAppearanceSectionExpanded = viewModel::setAppearanceSectionExpanded,
+        onSetColorsSectionExpanded = viewModel::setColorsSectionExpanded,
         onSetCustomHomeTitle = viewModel::setCustomHomeTitle,
         onPickCustomBackground = { ctx, uri ->
             viewModel.stagePickedBackground(ctx, uri) { path ->

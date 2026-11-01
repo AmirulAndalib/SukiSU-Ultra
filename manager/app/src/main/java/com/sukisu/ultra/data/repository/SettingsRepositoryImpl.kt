@@ -98,6 +98,22 @@ class SettingsRepositoryImpl : SettingsRepository {
         get() = prefs.getBoolean("background_appearance_expanded", true)
         set(value) = prefs.edit { putBoolean("background_appearance_expanded", value) }
 
+    override var backgroundSectionExpanded: Boolean
+        get() = prefs.getBoolean("background_section_expanded", true)
+        set(value) = prefs.edit { putBoolean("background_section_expanded", value) }
+
+    override var themePackageSectionExpanded: Boolean
+        get() = prefs.getBoolean("theme_package_section_expanded", true)
+        set(value) = prefs.edit { putBoolean("theme_package_section_expanded", value) }
+
+    override var appearanceSectionExpanded: Boolean
+        get() = prefs.getBoolean("appearance_section_expanded", true)
+        set(value) = prefs.edit { putBoolean("appearance_section_expanded", value) }
+
+    override var colorsSectionExpanded: Boolean
+        get() = prefs.getBoolean("colors_section_expanded", true)
+        set(value) = prefs.edit { putBoolean("colors_section_expanded", value) }
+
     override var customHomeTitle: String
         get() = prefs.getString(KEY_CUSTOM_HOME_TITLE, "") ?: ""
         set(value) = prefs.edit { putString(KEY_CUSTOM_HOME_TITLE, value.trim()) }

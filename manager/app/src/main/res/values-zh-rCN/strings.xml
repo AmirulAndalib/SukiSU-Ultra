@@ -234,6 +234,14 @@
     <string name="group_contains_apps">包含 %d 个应用</string>
     <string name="settings_theme">主题设置</string>
     <string name="settings_theme_summary">自定义更多主题选项</string>
+    <string name="settings_section_background">背景</string>
+    <string name="settings_section_background_summary">壁纸、取色与背景外观</string>
+    <string name="settings_section_theme_package">主题包</string>
+    <string name="settings_section_theme_package_summary">导出、导入与恢复主题</string>
+    <string name="settings_section_appearance">外观</string>
+    <string name="settings_section_appearance_summary">首页状态、图标与自定义文字</string>
+    <string name="settings_section_colors">颜色</string>
+    <string name="settings_section_colors_summary">Monet、强调色与配色</string>
     <string name="settings_theme_mode_system">跟随系统</string>
     <string name="settings_theme_mode_light">浅色</string>
     <string name="settings_theme_mode_dark">深色</string>

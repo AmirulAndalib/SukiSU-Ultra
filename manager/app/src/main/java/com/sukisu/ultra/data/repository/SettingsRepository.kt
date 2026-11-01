@@ -15,6 +15,11 @@ interface SettingsRepository {
     var customBackgroundBlurPercent: Int
     var customBackgroundScrimPercent: Int
     var backgroundAppearanceExpanded: Boolean
+    /** Expanded state of the top-level cards on the appearance page. */
+    var backgroundSectionExpanded: Boolean
+    var themePackageSectionExpanded: Boolean
+    var appearanceSectionExpanded: Boolean
+    var colorsSectionExpanded: Boolean
     var customHomeTitle: String
     var customTexts: Map<String, String>
     var homeCardImagePath: String

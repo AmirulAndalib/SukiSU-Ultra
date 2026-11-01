@@ -49,6 +49,10 @@ class SettingsViewModel(
         checkCiUpdate = repo.checkCiUpdate,
         checkModuleUpdate = repo.checkModuleUpdate,
         backgroundAppearanceExpanded = repo.backgroundAppearanceExpanded,
+        backgroundSectionExpanded = repo.backgroundSectionExpanded,
+        themePackageSectionExpanded = repo.themePackageSectionExpanded,
+        appearanceSectionExpanded = repo.appearanceSectionExpanded,
+        colorsSectionExpanded = repo.colorsSectionExpanded,
         customHomeTitle = repo.customHomeTitle,
         customTexts = repo.customTexts,
         homeCardImagePath = repo.homeCardImagePath,
@@ -160,6 +164,10 @@ class SettingsViewModel(
                     appIconId = appIconId,
                     appIconDynamicColor = appIconDynamicColor,
                     backgroundAppearanceExpanded = repo.backgroundAppearanceExpanded,
+                    backgroundSectionExpanded = repo.backgroundSectionExpanded,
+                    themePackageSectionExpanded = repo.themePackageSectionExpanded,
+                    appearanceSectionExpanded = repo.appearanceSectionExpanded,
+                    colorsSectionExpanded = repo.colorsSectionExpanded,
                     customHomeTitle = repo.customHomeTitle,
                     customTexts = repo.customTexts,
         homeCardImagePath = repo.homeCardImagePath,
@@ -880,6 +888,26 @@ class SettingsViewModel(
         _uiState.update { it.copy(backgroundAppearanceExpanded = expanded) }
     }
 
+    fun setBackgroundSectionExpanded(expanded: Boolean) {
+        repo.backgroundSectionExpanded = expanded
+        _uiState.update { it.copy(backgroundSectionExpanded = expanded) }
+    }
+
+    fun setThemePackageSectionExpanded(expanded: Boolean) {
+        repo.themePackageSectionExpanded = expanded
+        _uiState.update { it.copy(themePackageSectionExpanded = expanded) }
+    }
+
+    fun setAppearanceSectionExpanded(expanded: Boolean) {
+        repo.appearanceSectionExpanded = expanded
+        _uiState.update { it.copy(appearanceSectionExpanded = expanded) }
+    }
+
+    fun setColorsSectionExpanded(expanded: Boolean) {
+        repo.colorsSectionExpanded = expanded
+        _uiState.update { it.copy(colorsSectionExpanded = expanded) }
+    }
+
     fun setCustomHomeTitle(title: String) {
         val normalizedTitle = title.trim()
         repo.customHomeTitle = normalizedTitle
@@ -1275,6 +1303,10 @@ class SettingsViewModel(
             colorSpec = colorSpec,
             extractColorFromBackground = extractColorFromBackground,
             backgroundAppearanceExpanded = backgroundAppearanceExpanded,
+            backgroundSectionExpanded = backgroundSectionExpanded,
+            themePackageSectionExpanded = themePackageSectionExpanded,
+            appearanceSectionExpanded = appearanceSectionExpanded,
+            colorsSectionExpanded = colorsSectionExpanded,
             showFullStatus = showFullStatus,
             hideHomeWarnings = hideHomeWarnings,
             showAiHomeCard = showAiHomeCard,

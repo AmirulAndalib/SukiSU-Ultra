@@ -12,6 +12,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -57,7 +58,9 @@ import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.FileDownload
 import androidx.compose.material.icons.rounded.FileUpload
+import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Pin
+import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Restore
 import androidx.compose.material.icons.rounded.Style
 import androidx.compose.material.icons.rounded.Wallpaper
@@ -80,6 +83,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -280,6 +284,10 @@ fun ColorPaletteScreenMiuix(
         var showHomeTitleDialog by rememberSaveable { mutableStateOf(false) }
         var homeTitleDraft by rememberSaveable { mutableStateOf("") }
         val appearanceExpanded = state.backgroundAppearanceExpanded
+        val backgroundSectionExpanded = state.backgroundSectionExpanded
+        val themePackageSectionExpanded = state.themePackageSectionExpanded
+        val appearanceSectionExpanded = state.appearanceSectionExpanded
+        val colorsSectionExpanded = state.colorsSectionExpanded
 
         Box(modifier = if (backdrop != null) Modifier.layerBackdrop(backdrop) else Modifier) {
             LazyColumn(
@@ -312,395 +320,373 @@ fun ColorPaletteScreenMiuix(
                             .fillMaxWidth(),
                         colors = backgroundAwareCardColors(),
                     ) {
-                        SwitchPreference(
-                            title = stringResource(id = R.string.settings_use_system_wallpaper),
-                            summary = stringResource(
-                                id = if (state.isSystemWallpaperBusy) {
-                                    R.string.settings_use_system_wallpaper_reading
-                                } else {
-                                    R.string.settings_use_system_wallpaper_summary
-                                }
-                            ),
-                            startAction = {
-                                Icon(
-                                    imageVector = Icons.Rounded.Wallpaper,
-                                    modifier = Modifier.padding(end = 6.dp),
-                                    contentDescription = stringResource(id = R.string.settings_use_system_wallpaper),
-                                    tint = colorScheme.onBackground
-                                )
+                        MiuixSectionHeader(
+                            title = stringResource(R.string.settings_section_background),
+                            summary = stringResource(R.string.settings_section_background_summary),
+                            icon = Icons.Rounded.Wallpaper,
+                            expanded = backgroundSectionExpanded,
+                            onClick = {
+                                actions.onSetBackgroundSectionExpanded(!backgroundSectionExpanded)
                             },
-                            checked = usingSystemWallpaper,
-                            enabled = !state.isSystemWallpaperBusy,
-                            onCheckedChange = { actions.onSetUseSystemWallpaper(context, it) },
                         )
-
-                        if (!usingSystemWallpaper) {
-                            HorizontalDivider()
-                            BasicComponent(
-                                title = stringResource(id = R.string.settings_custom_background),
-                                summary = stringResource(id = R.string.settings_custom_background_summary),
-                                startAction = {
-                                    Icon(
-                                        imageVector = Icons.Rounded.Image,
-                                        modifier = Modifier.padding(end = 6.dp),
-                                        contentDescription = stringResource(id = R.string.settings_custom_background),
-                                        tint = colorScheme.onBackground
-                                    )
-                                },
-                                endActions = {
-                                    if (hasCustomBg) {
-                                        MiuixTextButtonAffectedByBackground(
-                                            text = stringResource(id = R.string.settings_clear),
-                                            onClick = { actions.onClearCustomBackground(context) }
-                                        )
-                                    }
-                                },
-                                onClick = {
-                                    pickImageLauncher.launch(
-                                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                                    )
-                                }
-                            )
-
-                            if (hasCustomBg) {
+                        AnimatedVisibility(
+                            visible = backgroundSectionExpanded,
+                            enter = expandVertically() + fadeIn(),
+                            exit = shrinkVertically() + fadeOut(),
+                        ) {
+                            Column {
                                 HorizontalDivider()
-                                BasicComponent(
-                                    title = stringResource(id = R.string.settings_crop_background),
-                                    summary = stringResource(id = R.string.settings_crop_background_summary),
+                                SwitchPreference(
+                                    title = stringResource(id = R.string.settings_use_system_wallpaper),
+                                    summary = stringResource(
+                                        id = if (state.isSystemWallpaperBusy) {
+                                            R.string.settings_use_system_wallpaper_reading
+                                        } else {
+                                            R.string.settings_use_system_wallpaper_summary
+                                        }
+                                    ),
                                     startAction = {
                                         Icon(
-                                            imageVector = Icons.Rounded.Crop,
+                                            imageVector = Icons.Rounded.Wallpaper,
                                             modifier = Modifier.padding(end = 6.dp),
-                                            contentDescription = stringResource(id = R.string.settings_crop_background),
+                                            contentDescription = stringResource(id = R.string.settings_use_system_wallpaper),
                                             tint = colorScheme.onBackground
                                         )
                                     },
-                                    onClick = { actions.onCropCurrentBackground(context) }
+                                    checked = usingSystemWallpaper,
+                                    enabled = !state.isSystemWallpaperBusy,
+                                    onCheckedChange = { actions.onSetUseSystemWallpaper(context, it) },
                                 )
-                            }
-                        }
 
-                        val hasCustomBgFile = hasCustomBg && !usingSystemWallpaper
-                        val hasCardBgFile = state.homeCardImagePath.isNotBlank() && File(state.homeCardImagePath).isFile
-                        if (hasCustomBgFile || hasCardBgFile) {
-                            HorizontalDivider()
-                            ArrowPreference(
-                                title = stringResource(id = R.string.settings_export_images),
-                                summary = stringResource(id = R.string.settings_export_images_summary),
-                                startAction = {
-                                    Icon(
-                                        imageVector = Icons.Rounded.FileDownload,
-                                        modifier = Modifier.padding(end = 6.dp),
-                                        contentDescription = stringResource(id = R.string.settings_export_images),
-                                        tint = colorScheme.onBackground
+                                if (!usingSystemWallpaper) {
+                                    HorizontalDivider()
+                                    BasicComponent(
+                                        title = stringResource(id = R.string.settings_custom_background),
+                                        summary = stringResource(id = R.string.settings_custom_background_summary),
+                                        startAction = {
+                                            Icon(
+                                                imageVector = Icons.Rounded.Image,
+                                                modifier = Modifier.padding(end = 6.dp),
+                                                contentDescription = stringResource(id = R.string.settings_custom_background),
+                                                tint = colorScheme.onBackground
+                                            )
+                                        },
+                                        endActions = {
+                                            if (hasCustomBg) {
+                                                MiuixTextButtonAffectedByBackground(
+                                                    text = stringResource(id = R.string.settings_clear),
+                                                    onClick = { actions.onClearCustomBackground(context) }
+                                                )
+                                            }
+                                        },
+                                        onClick = {
+                                            pickImageLauncher.launch(
+                                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                            )
+                                        }
                                     )
-                                },
-                                onClick = {
-                                    val fileName = when {
-                                        hasCustomBgFile && hasCardBgFile -> "SukiSU-images.zip"
-                                        hasCardBgFile -> "SukiSU-home-card.png"
-                                        else -> "SukiSU-background.png"
-                                    }
-                                    exportImagesLauncher.launch(fileName)
-                                }
-                            )
-                        }
 
-                        if (usingSystemWallpaper || hasCustomBg) {
-                            HorizontalDivider()
-                            SwitchPreference(
-                                title = stringResource(id = R.string.settings_extract_background_color),
-                                // Without Monet the Miuix theme ignores the seed entirely, so the
-                                // switch would look enabled while changing nothing.
-                                summary = stringResource(
-                                    id = if (state.miuixMonet) {
-                                        R.string.settings_extract_background_color_summary
-                                    } else {
-                                        R.string.settings_extract_background_color_disabled
-                                    }
-                                ),
-                                startAction = {
-                                    Icon(
-                                        imageVector = Icons.Rounded.Colorize,
-                                        modifier = Modifier.padding(end = 6.dp),
-                                        contentDescription = stringResource(id = R.string.settings_extract_background_color),
-                                        tint = colorScheme.onBackground
-                                    )
-                                },
-                                checked = state.extractColorFromBackground,
-                                onCheckedChange = actions.onSetExtractColorFromBackground,
-                            )
-                            HorizontalDivider()
-                            BasicComponent(
-                                title = stringResource(id = R.string.settings_background_appearance),
-                                summary = stringResource(id = R.string.settings_background_appearance_summary),
-                                startAction = {
-                                    Icon(
-                                        imageVector = Icons.Rounded.Tune,
-                                        modifier = Modifier.padding(end = 6.dp),
-                                        contentDescription = stringResource(id = R.string.settings_background_appearance),
-                                        tint = colorScheme.onBackground
-                                    )
-                                },
-                                endActions = {
-                                    Icon(
-                                        imageVector = Icons.Rounded.KeyboardArrowDown,
-                                        contentDescription = null,
-                                        modifier = Modifier.graphicsLayer {
-                                            rotationZ = if (appearanceExpanded) 180f else 0f
-                                        },
-                                        tint = colorScheme.onBackground
-                                    )
-                                },
-                                onClick = {
-                                    actions.onSetBackgroundAppearanceExpanded(!appearanceExpanded)
-                                },
-                            )
-                            AnimatedVisibility(
-                                visible = appearanceExpanded,
-                                enter = expandVertically() + fadeIn(),
-                                exit = shrinkVertically() + fadeOut(),
-                            ) {
-                                Column {
-                                    HorizontalDivider()
-                                    MiuixBackgroundSliderSection(
-                                        title = stringResource(id = R.string.settings_card_background_alpha),
-                                        summary = stringResource(
-                                            id = R.string.settings_card_background_alpha_summary,
-                                            cardAlphaDraft.roundToInt(),
-                                        ),
-                                        value = cardAlphaDraft,
-                                        valueRange = 10f..91f,
-                                        onValueChange = { cardAlphaDraft = it },
-                                        onValueChangeFinished = {
-                                            val percent = cardAlphaDraft.roundToInt()
-                                            cardAlphaDraft = percent.toFloat()
-                                            sliderCommitted.intValue += 1
-                                            actions.onSetCardBackgroundAlphaPercent(percent)
-                                        },
-                                    )
-                                    HorizontalDivider()
-                                    MiuixBackgroundSliderSection(
-                                        title = stringResource(id = R.string.settings_background_blur),
-                                        summary = stringResource(
-                                            id = R.string.settings_background_blur_summary,
-                                            blurDraft.roundToInt(),
-                                        ),
-                                        value = blurDraft,
-                                        valueRange = 0f..100f,
-                                        onValueChange = { blurDraft = it },
-                                        onValueChangeFinished = {
-                                            val percent = blurDraft.roundToInt()
-                                            blurDraft = percent.toFloat()
-                                            sliderCommitted.intValue += 1
-                                            actions.onSetCustomBackgroundBlurPercent(percent)
-                                        },
-                                    )
-                                    HorizontalDivider()
-                                    MiuixBackgroundSliderSection(
-                                        title = stringResource(id = R.string.settings_background_scrim),
-                                        summary = stringResource(
-                                            id = R.string.settings_background_scrim_summary,
-                                            scrimDraft.roundToInt(),
-                                        ),
-                                        value = scrimDraft,
-                                        valueRange = -100f..100f,
-                                        onValueChange = { scrimDraft = it },
-                                        onValueChangeFinished = {
-                                            val percent = scrimDraft.roundToInt()
-                                            scrimDraft = percent.toFloat()
-                                            sliderCommitted.intValue += 1
-                                            actions.onSetCustomBackgroundScrimPercent(percent)
-                                        },
-                                        startLabel = stringResource(id = R.string.settings_background_scrim_darker),
-                                        endLabel = stringResource(id = R.string.settings_background_scrim_lighter),
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    AppCard(
-                        modifier = Modifier
-                            .bringIntoViewRequester(sectionRequester("theme_package"))
-                            .padding(bottom = 12.dp)
-                            .fillMaxWidth(),
-                    ) {
-                        BasicComponent(
-                            title = stringResource(id = R.string.theme_export),
-                            summary = stringResource(id = R.string.theme_export_summary),
-                            startAction = {
-                                Icon(
-                                    Icons.Rounded.FileUpload,
-                                    modifier = Modifier.padding(end = 6.dp),
-                                    contentDescription = stringResource(id = R.string.theme_export),
-                                    tint = colorScheme.onBackground
-                                )
-                            },
-                            onClick = {
-                                exportThemeLauncher.launch(ThemePackageStorage.packageFileName())
-                            },
-                        )
-                        BasicComponent(
-                            title = stringResource(id = R.string.theme_import),
-                            summary = stringResource(id = R.string.theme_import_summary),
-                            startAction = {
-                                Icon(
-                                    Icons.Rounded.FileDownload,
-                                    modifier = Modifier.padding(end = 6.dp),
-                                    contentDescription = stringResource(id = R.string.theme_import),
-                                    tint = colorScheme.onBackground
-                                )
-                            },
-                            onClick = {
-                                importThemeLauncher.launch(
-                                        arrayOf(
-                                            ThemePackageStorage.THEME_MIME_TYPE,
-                                            "application/octet-stream",
-                                            "application/zip",
-                                            "application/x-zip-compressed",
-                                            "*/*"
+                                    if (hasCustomBg) {
+                                        HorizontalDivider()
+                                        BasicComponent(
+                                            title = stringResource(id = R.string.settings_crop_background),
+                                            summary = stringResource(id = R.string.settings_crop_background_summary),
+                                            startAction = {
+                                                Icon(
+                                                    imageVector = Icons.Rounded.Crop,
+                                                    modifier = Modifier.padding(end = 6.dp),
+                                                    contentDescription = stringResource(id = R.string.settings_crop_background),
+                                                    tint = colorScheme.onBackground
+                                                )
+                                            },
+                                            onClick = { actions.onCropCurrentBackground(context) }
                                         )
+                                    }
+                                }
+
+                                val hasCustomBgFile = hasCustomBg && !usingSystemWallpaper
+                                val hasCardBgFile = state.homeCardImagePath.isNotBlank() && File(state.homeCardImagePath).isFile
+                                if (hasCustomBgFile || hasCardBgFile) {
+                                    HorizontalDivider()
+                                    ArrowPreference(
+                                        title = stringResource(id = R.string.settings_export_images),
+                                        summary = stringResource(id = R.string.settings_export_images_summary),
+                                        startAction = {
+                                            Icon(
+                                                imageVector = Icons.Rounded.FileDownload,
+                                                modifier = Modifier.padding(end = 6.dp),
+                                                contentDescription = stringResource(id = R.string.settings_export_images),
+                                                tint = colorScheme.onBackground
+                                            )
+                                        },
+                                        onClick = {
+                                            val fileName = when {
+                                                hasCustomBgFile && hasCardBgFile -> "SukiSU-images.zip"
+                                                hasCardBgFile -> "SukiSU-home-card.png"
+                                                else -> "SukiSU-background.png"
+                                            }
+                                            exportImagesLauncher.launch(fileName)
+                                        }
                                     )
-                            },
-                        )
-                        BasicComponent(
-                            title = stringResource(id = R.string.theme_reset),
-                            summary = stringResource(id = R.string.theme_reset_summary),
-                            startAction = {
-                                Icon(
-                                    Icons.Rounded.Restore,
-                                    modifier = Modifier.padding(end = 6.dp),
-                                    contentDescription = stringResource(id = R.string.theme_reset),
-                                    tint = colorScheme.onBackground
-                                )
-                            },
-                            onClick = { showResetThemeDialog.value = true },
-                        )
+                                }
+
+                                if (usingSystemWallpaper || hasCustomBg) {
+                                    HorizontalDivider()
+                                    SwitchPreference(
+                                        title = stringResource(id = R.string.settings_extract_background_color),
+                                        // Without Monet the Miuix theme ignores the seed entirely, so the
+                                        // switch would look enabled while changing nothing.
+                                        summary = stringResource(
+                                            id = if (state.miuixMonet) {
+                                                R.string.settings_extract_background_color_summary
+                                            } else {
+                                                R.string.settings_extract_background_color_disabled
+                                            }
+                                        ),
+                                        startAction = {
+                                            Icon(
+                                                imageVector = Icons.Rounded.Colorize,
+                                                modifier = Modifier.padding(end = 6.dp),
+                                                contentDescription = stringResource(id = R.string.settings_extract_background_color),
+                                                tint = colorScheme.onBackground
+                                            )
+                                        },
+                                        checked = state.extractColorFromBackground,
+                                        onCheckedChange = actions.onSetExtractColorFromBackground,
+                                    )
+                                    HorizontalDivider()
+                                    BasicComponent(
+                                        title = stringResource(id = R.string.settings_background_appearance),
+                                        summary = stringResource(id = R.string.settings_background_appearance_summary),
+                                        startAction = {
+                                            Icon(
+                                                imageVector = Icons.Rounded.Tune,
+                                                modifier = Modifier.padding(end = 6.dp),
+                                                contentDescription = stringResource(id = R.string.settings_background_appearance),
+                                                tint = colorScheme.onBackground
+                                            )
+                                        },
+                                        endActions = {
+                                            Icon(
+                                                imageVector = Icons.Rounded.KeyboardArrowDown,
+                                                contentDescription = null,
+                                                modifier = Modifier.graphicsLayer {
+                                                    rotationZ = if (appearanceExpanded) 180f else 0f
+                                                },
+                                                tint = colorScheme.onBackground
+                                            )
+                                        },
+                                        onClick = {
+                                            actions.onSetBackgroundAppearanceExpanded(!appearanceExpanded)
+                                        },
+                                    )
+                                    AnimatedVisibility(
+                                        visible = appearanceExpanded,
+                                        enter = expandVertically() + fadeIn(),
+                                        exit = shrinkVertically() + fadeOut(),
+                                    ) {
+                                        Column {
+                                            HorizontalDivider()
+                                            MiuixBackgroundSliderSection(
+                                                title = stringResource(id = R.string.settings_card_background_alpha),
+                                                summary = stringResource(
+                                                    id = R.string.settings_card_background_alpha_summary,
+                                                    cardAlphaDraft.roundToInt(),
+                                                ),
+                                                value = cardAlphaDraft,
+                                                valueRange = 10f..91f,
+                                                onValueChange = { cardAlphaDraft = it },
+                                                onValueChangeFinished = {
+                                                    val percent = cardAlphaDraft.roundToInt()
+                                                    cardAlphaDraft = percent.toFloat()
+                                                    sliderCommitted.intValue += 1
+                                                    actions.onSetCardBackgroundAlphaPercent(percent)
+                                                },
+                                            )
+                                            HorizontalDivider()
+                                            MiuixBackgroundSliderSection(
+                                                title = stringResource(id = R.string.settings_background_blur),
+                                                summary = stringResource(
+                                                    id = R.string.settings_background_blur_summary,
+                                                    blurDraft.roundToInt(),
+                                                ),
+                                                value = blurDraft,
+                                                valueRange = 0f..100f,
+                                                onValueChange = { blurDraft = it },
+                                                onValueChangeFinished = {
+                                                    val percent = blurDraft.roundToInt()
+                                                    blurDraft = percent.toFloat()
+                                                    sliderCommitted.intValue += 1
+                                                    actions.onSetCustomBackgroundBlurPercent(percent)
+                                                },
+                                            )
+                                            HorizontalDivider()
+                                            MiuixBackgroundSliderSection(
+                                                title = stringResource(id = R.string.settings_background_scrim),
+                                                summary = stringResource(
+                                                    id = R.string.settings_background_scrim_summary,
+                                                    scrimDraft.roundToInt(),
+                                                ),
+                                                value = scrimDraft,
+                                                valueRange = -100f..100f,
+                                                onValueChange = { scrimDraft = it },
+                                                onValueChangeFinished = {
+                                                    val percent = scrimDraft.roundToInt()
+                                                    scrimDraft = percent.toFloat()
+                                                    sliderCommitted.intValue += 1
+                                                    actions.onSetCustomBackgroundScrimPercent(percent)
+                                                },
+                                                startLabel = stringResource(id = R.string.settings_background_scrim_darker),
+                                                endLabel = stringResource(id = R.string.settings_background_scrim_lighter),
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
+
                     AppCard(
                         modifier = Modifier
                             .bringIntoViewRequester(sectionRequester("appearance"))
                             .padding(bottom = 12.dp)
                             .fillMaxWidth(),
                     ) {
-                        SwitchPreference(
-                            title = stringResource(id = R.string.settings_show_fullstatus),
-                            summary = stringResource(id = R.string.settings_show_fullstatus_summary),
-                            startAction = {
-                                Icon(
-                                    Icons.Rounded.Fingerprint,
-                                    modifier = Modifier.padding(end = 6.dp),
-                                    contentDescription = stringResource(id = R.string.settings_show_fullstatus),
-                                    tint = colorScheme.onBackground
-                                )
-                            },
-                            checked = state.showFullStatus,
-                            onCheckedChange = {
-                                actions.onSetShowFullStatus(it)
-                            }
-                        )
-
-                        SwitchPreference(
-                            title = stringResource(id = R.string.settings_hide_home_warnings),
-                            summary = stringResource(id = R.string.settings_hide_home_warnings_summary),
-                            startAction = {
-                                Icon(
-                                    Icons.Rounded.Warning,
-                                    modifier = Modifier.padding(end = 6.dp),
-                                    contentDescription = stringResource(id = R.string.settings_hide_home_warnings),
-                                    tint = colorScheme.onBackground
-                                )
-                            },
-                            checked = state.hideHomeWarnings,
-                            onCheckedChange = {
-                                actions.onSetHideHomeWarnings(it)
-                            }
-                        )
-
-                        if (AiFeatureBridge.isAvailable) {
-                            SwitchPreference(
-                                title = stringResource(id = AiR.string.ai_show_home_card),
-                                summary = stringResource(id = AiR.string.ai_show_home_card_summary),
-                                startAction = {
-                                    Icon(
-                                        Icons.Rounded.AutoAwesome,
-                                        modifier = Modifier.padding(end = 6.dp),
-                                        contentDescription = stringResource(id = AiR.string.ai_show_home_card),
-                                        tint = colorScheme.onBackground
-                                    )
-                                },
-                                checked = state.showAiHomeCard,
-                                onCheckedChange = {
-                                    actions.onSetShowAiHomeCard(it)
-                                }
-                            )
-                        }
-
-                        ArrowPreference(
-                            title = stringResource(id = R.string.app_icon_title),
-                            summary = stringResource(
-                                id = BuiltinAppIcons.find(uiState.appIconId).nameRes
-                            ),
-                            startAction = {
-                                BuiltinAppIconPreview(
-                                    icon = BuiltinAppIcons.find(uiState.appIconId),
-                                    modifier = Modifier
-                                        .padding(end = 8.dp)
-                                        .size(28.dp)
-                                        .clip(RoundedCornerShape(8.dp)),
-                                )
-                            },
-                            onClick = actions.onOpenAppIcon,
-                        )
-                        ArrowPreference(
-                            title = stringResource(id = R.string.settings_custom_texts),
-                            summary = stringResource(id = R.string.settings_custom_texts_summary),
-                            startAction = {
-                                Icon(
-                                    Icons.Rounded.Edit,
-                                    modifier = Modifier.padding(end = 8.dp),
-                                    contentDescription = stringResource(R.string.settings_custom_texts),
-                                    tint = colorScheme.onBackground,
-                                )
-                            },
-                            onClick = actions.onOpenCustomTexts,
-                        )
-                        ArrowPreference(
-                            title = stringResource(id = R.string.settings_home_card_image),
-                            summary = if (state.homeCardImagePath.isBlank()) {
-                                stringResource(R.string.settings_home_card_image_default)
-                            } else {
-                                stringResource(R.string.settings_home_card_image_set)
-                            },
-                            startAction = {
-                                Icon(
-                                    Icons.Rounded.Image,
-                                    modifier = Modifier.padding(end = 8.dp),
-                                    contentDescription = stringResource(R.string.settings_home_card_image),
-                                    tint = colorScheme.onBackground,
-                                )
-                            },
+                        MiuixSectionHeader(
+                            title = stringResource(R.string.settings_section_appearance),
+                            summary = stringResource(R.string.settings_section_appearance_summary),
+                            icon = Icons.Rounded.Home,
+                            expanded = appearanceSectionExpanded,
                             onClick = {
-                                homeCardImageLauncher.launch(
-                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                                )
+                                actions.onSetAppearanceSectionExpanded(!appearanceSectionExpanded)
                             },
                         )
-                        if (state.homeCardImagePath.isNotBlank()) {
-                            ArrowPreference(
-                                title = stringResource(id = R.string.settings_home_card_image_clear),
-                                summary = stringResource(R.string.settings_home_card_image_clear_summary),
-                                startAction = {
-                                    Icon(
-                                        Icons.Rounded.Restore,
-                                        modifier = Modifier.padding(end = 8.dp),
-                                        contentDescription = stringResource(R.string.settings_home_card_image_clear),
-                                        tint = colorScheme.onBackground,
+                        AnimatedVisibility(
+                            visible = appearanceSectionExpanded,
+                            enter = expandVertically() + fadeIn(),
+                            exit = shrinkVertically() + fadeOut(),
+                        ) {
+                            Column {
+                                HorizontalDivider()
+                                SwitchPreference(
+                                    title = stringResource(id = R.string.settings_show_fullstatus),
+                                    summary = stringResource(id = R.string.settings_show_fullstatus_summary),
+                                    startAction = {
+                                        Icon(
+                                            Icons.Rounded.Fingerprint,
+                                            modifier = Modifier.padding(end = 6.dp),
+                                            contentDescription = stringResource(id = R.string.settings_show_fullstatus),
+                                            tint = colorScheme.onBackground
+                                        )
+                                    },
+                                    checked = state.showFullStatus,
+                                    onCheckedChange = {
+                                        actions.onSetShowFullStatus(it)
+                                    }
+                                )
+
+                                SwitchPreference(
+                                    title = stringResource(id = R.string.settings_hide_home_warnings),
+                                    summary = stringResource(id = R.string.settings_hide_home_warnings_summary),
+                                    startAction = {
+                                        Icon(
+                                            Icons.Rounded.Warning,
+                                            modifier = Modifier.padding(end = 6.dp),
+                                            contentDescription = stringResource(id = R.string.settings_hide_home_warnings),
+                                            tint = colorScheme.onBackground
+                                        )
+                                    },
+                                    checked = state.hideHomeWarnings,
+                                    onCheckedChange = {
+                                        actions.onSetHideHomeWarnings(it)
+                                    }
+                                )
+
+                                if (AiFeatureBridge.isAvailable) {
+                                    SwitchPreference(
+                                        title = stringResource(id = AiR.string.ai_show_home_card),
+                                        summary = stringResource(id = AiR.string.ai_show_home_card_summary),
+                                        startAction = {
+                                            Icon(
+                                                Icons.Rounded.AutoAwesome,
+                                                modifier = Modifier.padding(end = 6.dp),
+                                                contentDescription = stringResource(id = AiR.string.ai_show_home_card),
+                                                tint = colorScheme.onBackground
+                                            )
+                                        },
+                                        checked = state.showAiHomeCard,
+                                        onCheckedChange = {
+                                            actions.onSetShowAiHomeCard(it)
+                                        }
                                     )
-                                },
-                                onClick = actions.onClearHomeCardImage,
-                            )
+                                }
+
+                                ArrowPreference(
+                                    title = stringResource(id = R.string.app_icon_title),
+                                    summary = stringResource(
+                                        id = BuiltinAppIcons.find(uiState.appIconId).nameRes
+                                    ),
+                                    startAction = {
+                                        BuiltinAppIconPreview(
+                                            icon = BuiltinAppIcons.find(uiState.appIconId),
+                                            modifier = Modifier
+                                                .padding(end = 8.dp)
+                                                .size(28.dp)
+                                                .clip(RoundedCornerShape(8.dp)),
+                                        )
+                                    },
+                                    onClick = actions.onOpenAppIcon,
+                                )
+                                ArrowPreference(
+                                    title = stringResource(id = R.string.settings_custom_texts),
+                                    summary = stringResource(id = R.string.settings_custom_texts_summary),
+                                    startAction = {
+                                        Icon(
+                                            Icons.Rounded.Edit,
+                                            modifier = Modifier.padding(end = 8.dp),
+                                            contentDescription = stringResource(R.string.settings_custom_texts),
+                                            tint = colorScheme.onBackground,
+                                        )
+                                    },
+                                    onClick = actions.onOpenCustomTexts,
+                                )
+                                ArrowPreference(
+                                    title = stringResource(id = R.string.settings_home_card_image),
+                                    summary = if (state.homeCardImagePath.isBlank()) {
+                                        stringResource(R.string.settings_home_card_image_default)
+                                    } else {
+                                        stringResource(R.string.settings_home_card_image_set)
+                                    },
+                                    startAction = {
+                                        Icon(
+                                            Icons.Rounded.Image,
+                                            modifier = Modifier.padding(end = 8.dp),
+                                            contentDescription = stringResource(R.string.settings_home_card_image),
+                                            tint = colorScheme.onBackground,
+                                        )
+                                    },
+                                    onClick = {
+                                        homeCardImageLauncher.launch(
+                                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                        )
+                                    },
+                                )
+                                if (state.homeCardImagePath.isNotBlank()) {
+                                    ArrowPreference(
+                                        title = stringResource(id = R.string.settings_home_card_image_clear),
+                                        summary = stringResource(R.string.settings_home_card_image_clear_summary),
+                                        startAction = {
+                                            Icon(
+                                                Icons.Rounded.Restore,
+                                                modifier = Modifier.padding(end = 8.dp),
+                                                contentDescription = stringResource(R.string.settings_home_card_image_clear),
+                                                tint = colorScheme.onBackground,
+                                            )
+                                        },
+                                        onClick = actions.onClearHomeCardImage,
+                                    )
+                                }
+                            }
                         }
                     }
                     val themeItems = listOf(
@@ -726,107 +712,202 @@ fun ColorPaletteScreenMiuix(
                             .padding(top = 12.dp)
                             .fillMaxWidth(),
                     ) {
-                        SwitchPreference(
-                            title = stringResource(id = R.string.settings_monet),
-                            startAction = {
-                                Icon(
-                                    Icons.Rounded.Wallpaper,
-                                    modifier = Modifier.padding(end = 6.dp),
-                                    contentDescription = stringResource(id = R.string.settings_monet),
-                                    tint = colorScheme.onBackground
-                                )
+                        MiuixSectionHeader(
+                            title = stringResource(R.string.settings_section_colors),
+                            summary = stringResource(R.string.settings_section_colors_summary),
+                            icon = Icons.Rounded.Colorize,
+                            expanded = colorsSectionExpanded,
+                            onClick = {
+                                actions.onSetColorsSectionExpanded(!colorsSectionExpanded)
                             },
-                            checked = state.miuixMonet,
-                            onCheckedChange = {
-                                actions.onSetMiuixMonet(it)
-                            }
                         )
-
                         AnimatedVisibility(
-                            visible = state.miuixMonet
+                            visible = colorsSectionExpanded,
+                            enter = expandVertically() + fadeIn(),
+                            exit = shrinkVertically() + fadeOut(),
                         ) {
                             Column {
-                                val colorItems = listOf(
-                                    stringResource(id = R.string.settings_key_color_default),
-                                    stringResource(id = R.string.color_red),
-                                    stringResource(id = R.string.color_pink),
-                                    stringResource(id = R.string.color_purple),
-                                    stringResource(id = R.string.color_deep_purple),
-                                    stringResource(id = R.string.color_indigo),
-                                    stringResource(id = R.string.color_blue),
-                                    stringResource(id = R.string.color_cyan),
-                                    stringResource(id = R.string.color_teal),
-                                    stringResource(id = R.string.color_green),
-                                    stringResource(id = R.string.color_yellow),
-                                    stringResource(id = R.string.color_amber),
-                                    stringResource(id = R.string.color_orange),
-                                    stringResource(id = R.string.color_brown),
-                                    stringResource(id = R.string.color_blue_grey),
-                                    stringResource(id = R.string.color_sakura),
-                                )
-                                val colorValues = listOf(0) + keyColorOptions
-                                OverlayDropdownPreference(
-                                    title = stringResource(id = R.string.settings_key_color),
-                                    items = colorItems,
+                                HorizontalDivider()
+                                SwitchPreference(
+                                    title = stringResource(id = R.string.settings_monet),
                                     startAction = {
                                         Icon(
-                                            Icons.Rounded.Colorize,
+                                            Icons.Rounded.Wallpaper,
                                             modifier = Modifier.padding(end = 6.dp),
-                                            contentDescription = stringResource(id = R.string.settings_key_color),
+                                            contentDescription = stringResource(id = R.string.settings_monet),
                                             tint = colorScheme.onBackground
                                         )
                                     },
-                                    // A background-derived seed is not one of the fixed options, so it
-                                    // shows up as the default pick rather than a stale color.
-                                    selectedIndex = colorValues.indexOf(
-                                        if (state.extractColorFromBackground) 0 else state.keyColor
-                                    ).takeIf { it >= 0 } ?: 0,
-                                    onSelectedIndexChange = { index ->
-                                        actions.onSetKeyColor(colorValues[index])
+                                    checked = state.miuixMonet,
+                                    onCheckedChange = {
+                                        actions.onSetMiuixMonet(it)
                                     }
                                 )
 
                                 AnimatedVisibility(
-                                    visible = state.keyColor != 0
+                                    visible = state.miuixMonet
                                 ) {
                                     Column {
-                                        val styles = PaletteStyle.entries
+                                        val colorItems = listOf(
+                                            stringResource(id = R.string.settings_key_color_default),
+                                            stringResource(id = R.string.color_red),
+                                            stringResource(id = R.string.color_pink),
+                                            stringResource(id = R.string.color_purple),
+                                            stringResource(id = R.string.color_deep_purple),
+                                            stringResource(id = R.string.color_indigo),
+                                            stringResource(id = R.string.color_blue),
+                                            stringResource(id = R.string.color_cyan),
+                                            stringResource(id = R.string.color_teal),
+                                            stringResource(id = R.string.color_green),
+                                            stringResource(id = R.string.color_yellow),
+                                            stringResource(id = R.string.color_amber),
+                                            stringResource(id = R.string.color_orange),
+                                            stringResource(id = R.string.color_brown),
+                                            stringResource(id = R.string.color_blue_grey),
+                                            stringResource(id = R.string.color_sakura),
+                                        )
+                                        val colorValues = listOf(0) + keyColorOptions
                                         OverlayDropdownPreference(
-                                            title = stringResource(R.string.settings_color_style),
+                                            title = stringResource(id = R.string.settings_key_color),
+                                            items = colorItems,
                                             startAction = {
                                                 Icon(
-                                                    Icons.Rounded.Style,
+                                                    Icons.Rounded.Colorize,
                                                     modifier = Modifier.padding(end = 6.dp),
-                                                    contentDescription = stringResource(id = R.string.settings_color_style),
+                                                    contentDescription = stringResource(id = R.string.settings_key_color),
                                                     tint = colorScheme.onBackground
                                                 )
                                             },
-                                            items = styles.map { it.name },
-                                            selectedIndex = styles.indexOfFirst { it.name == state.colorStyle }.coerceAtLeast(0),
+                                            // A background-derived seed is not one of the fixed options, so it
+                                            // shows up as the default pick rather than a stale color.
+                                            selectedIndex = colorValues.indexOf(
+                                                if (state.extractColorFromBackground) 0 else state.keyColor
+                                            ).takeIf { it >= 0 } ?: 0,
                                             onSelectedIndexChange = { index ->
-                                                actions.onSetColorStyle(styles[index].name)
+                                                actions.onSetKeyColor(colorValues[index])
                                             }
                                         )
 
-                                        val specs = ColorSpec.SpecVersion.entries
-                                        OverlayDropdownPreference(
-                                            title = stringResource(R.string.settings_color_spec),
-                                            startAction = {
-                                                Icon(
-                                                    Icons.Rounded.DesignServices,
-                                                    modifier = Modifier.padding(end = 6.dp),
-                                                    contentDescription = stringResource(id = R.string.settings_color_spec),
-                                                    tint = colorScheme.onBackground
+                                        AnimatedVisibility(
+                                            visible = state.keyColor != 0
+                                        ) {
+                                            Column {
+                                                val styles = PaletteStyle.entries
+                                                OverlayDropdownPreference(
+                                                    title = stringResource(R.string.settings_color_style),
+                                                    startAction = {
+                                                        Icon(
+                                                            Icons.Rounded.Style,
+                                                            modifier = Modifier.padding(end = 6.dp),
+                                                            contentDescription = stringResource(id = R.string.settings_color_style),
+                                                            tint = colorScheme.onBackground
+                                                        )
+                                                    },
+                                                    items = styles.map { it.name },
+                                                    selectedIndex = styles.indexOfFirst { it.name == state.colorStyle }.coerceAtLeast(0),
+                                                    onSelectedIndexChange = { index ->
+                                                        actions.onSetColorStyle(styles[index].name)
+                                                    }
                                                 )
-                                            },
-                                            items = specs.map { it.name },
-                                            selectedIndex = specs.indexOfFirst { it.name == state.colorSpec }.coerceAtLeast(0),
-                                            onSelectedIndexChange = { index ->
-                                                actions.onSetColorSpec(specs[index].name)
+
+                                                val specs = ColorSpec.SpecVersion.entries
+                                                OverlayDropdownPreference(
+                                                    title = stringResource(R.string.settings_color_spec),
+                                                    startAction = {
+                                                        Icon(
+                                                            Icons.Rounded.DesignServices,
+                                                            modifier = Modifier.padding(end = 6.dp),
+                                                            contentDescription = stringResource(id = R.string.settings_color_spec),
+                                                            tint = colorScheme.onBackground
+                                                        )
+                                                    },
+                                                    items = specs.map { it.name },
+                                                    selectedIndex = specs.indexOfFirst { it.name == state.colorSpec }.coerceAtLeast(0),
+                                                    onSelectedIndexChange = { index ->
+                                                        actions.onSetColorSpec(specs[index].name)
+                                                    }
+                                                )
                                             }
-                                        )
+                                        }
                                     }
                                 }
+                            }
+                        }
+                    }
+
+                    AppCard(
+                        modifier = Modifier
+                            .bringIntoViewRequester(sectionRequester("theme_package"))
+                            .padding(top = 12.dp)
+                            .fillMaxWidth(),
+                    ) {
+                        MiuixSectionHeader(
+                            title = stringResource(R.string.settings_section_theme_package),
+                            summary = stringResource(R.string.settings_section_theme_package_summary),
+                            icon = Icons.Rounded.Palette,
+                            expanded = themePackageSectionExpanded,
+                            onClick = {
+                                actions.onSetThemePackageSectionExpanded(!themePackageSectionExpanded)
+                            },
+                        )
+                        AnimatedVisibility(
+                            visible = themePackageSectionExpanded,
+                            enter = expandVertically() + fadeIn(),
+                            exit = shrinkVertically() + fadeOut(),
+                        ) {
+                            Column {
+                                HorizontalDivider()
+                                BasicComponent(
+                                    title = stringResource(id = R.string.theme_reset),
+                                    summary = stringResource(id = R.string.theme_reset_summary),
+                                    startAction = {
+                                        Icon(
+                                            Icons.Rounded.Restore,
+                                            modifier = Modifier.padding(end = 6.dp),
+                                            contentDescription = stringResource(id = R.string.theme_reset),
+                                            tint = colorScheme.onBackground
+                                        )
+                                    },
+                                    onClick = { showResetThemeDialog.value = true },
+                                )
+                                BasicComponent(
+                                    title = stringResource(id = R.string.theme_import),
+                                    summary = stringResource(id = R.string.theme_import_summary),
+                                    startAction = {
+                                        Icon(
+                                            Icons.Rounded.FileDownload,
+                                            modifier = Modifier.padding(end = 6.dp),
+                                            contentDescription = stringResource(id = R.string.theme_import),
+                                            tint = colorScheme.onBackground
+                                        )
+                                    },
+                                    onClick = {
+                                        importThemeLauncher.launch(
+                                                arrayOf(
+                                                    ThemePackageStorage.THEME_MIME_TYPE,
+                                                    "application/octet-stream",
+                                                    "application/zip",
+                                                    "application/x-zip-compressed",
+                                                    "*/*"
+                                                )
+                                            )
+                                    },
+                                )
+                                BasicComponent(
+                                    title = stringResource(id = R.string.theme_export),
+                                    summary = stringResource(id = R.string.theme_export_summary),
+                                    startAction = {
+                                        Icon(
+                                            Icons.Rounded.FileUpload,
+                                            modifier = Modifier.padding(end = 6.dp),
+                                            contentDescription = stringResource(id = R.string.theme_export),
+                                            tint = colorScheme.onBackground
+                                        )
+                                    },
+                                    onClick = {
+                                        exportThemeLauncher.launch(ThemePackageStorage.packageFileName())
+                                    },
+                                )
                             }
                         }
                     }
@@ -1133,6 +1214,41 @@ fun ColorPaletteScreenMiuix(
             )
         }
     }
+}
+
+@Composable
+private fun MiuixSectionHeader(
+    title: String,
+    summary: String,
+    icon: ImageVector,
+    expanded: Boolean,
+    onClick: () -> Unit,
+) {
+    val rotation by animateFloatAsState(
+        targetValue = if (expanded) 180f else 0f,
+        label = "MiuixSectionChevron",
+    )
+    BasicComponent(
+        title = title,
+        summary = summary,
+        startAction = {
+            Icon(
+                imageVector = icon,
+                modifier = Modifier.padding(end = 6.dp),
+                contentDescription = title,
+                tint = colorScheme.onBackground,
+            )
+        },
+        endActions = {
+            Icon(
+                imageVector = Icons.Rounded.KeyboardArrowDown,
+                contentDescription = null,
+                modifier = Modifier.graphicsLayer { rotationZ = rotation },
+                tint = colorScheme.onBackground,
+            )
+        },
+        onClick = onClick,
+    )
 }
 
 @Composable
