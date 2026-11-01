@@ -60,6 +60,7 @@ fun ColorPaletteScreen(section: String? = null) {
         onSetBackgroundSectionExpanded = viewModel::setBackgroundSectionExpanded,
         onSetThemePackageSectionExpanded = viewModel::setThemePackageSectionExpanded,
         onSetAppearanceSectionExpanded = viewModel::setAppearanceSectionExpanded,
+        onSetHomeCardSectionExpanded = viewModel::setHomeCardSectionExpanded,
         onSetColorsSectionExpanded = viewModel::setColorsSectionExpanded,
         onSetCustomHomeTitle = viewModel::setCustomHomeTitle,
         onPickCustomBackground = { ctx, uri ->
@@ -89,6 +90,9 @@ fun ColorPaletteScreen(section: String? = null) {
         onClearHomeCardImage = viewModel::clearHomeCardImage,
         onSetHideHomeCardStatusText = viewModel::setHideHomeCardStatusText,
         onSetHideHomeCardDecoration = viewModel::setHideHomeCardDecoration,
+        onPickHomeCardSticker = viewModel::addHomeCardSticker,
+        onRemoveHomeCardSticker = viewModel::removeHomeCardSticker,
+        onUpdateHomeCardStickerTransform = viewModel::updateHomeCardStickerTransform,
         onSetUseSystemWallpaper = viewModel::setUseSystemWallpaper,
         onSetExtractColorFromBackground = viewModel::setExtractColorFromBackground,
         onSetCardBackgroundAlphaPercent = viewModel::setCardBackgroundAlphaPercent,
@@ -104,6 +108,7 @@ fun ColorPaletteScreen(section: String? = null) {
         onResetAllCustomTexts = viewModel::resetAllCustomTexts,
         onOpenCustomTexts = { navigator.push(Route.CustomTexts) },
         onResetBackgroundAppearance = viewModel::resetBackgroundAppearance,
+        onClearAllAppearance = viewModel::clearAllAppearance,
     )
 
     ThemeImportDialog(

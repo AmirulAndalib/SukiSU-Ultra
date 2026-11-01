@@ -287,6 +287,7 @@ object AiThemeController : AiThemeService {
             data = buildThemePackageData(),
             backgroundFile = currentBackgroundFile(),
             cardBackgroundFile = currentHomeCardFile(),
+            cardStickerFiles = currentStickerFiles(),
         ).getOrThrow()
         "Theme package exported to the selected location."
     }
@@ -298,6 +299,7 @@ object AiThemeController : AiThemeService {
             data = buildThemePackageData(),
             backgroundFile = currentBackgroundFile(),
             cardBackgroundFile = currentHomeCardFile(),
+            cardStickerFiles = currentStickerFiles(),
         ).getOrThrow()
         val uri = FileProvider.getUriForFile(
             ksuApp,
@@ -336,6 +338,9 @@ object AiThemeController : AiThemeService {
             hasCardBackground = currentHomeCardFile() != null,
             hideHomeCardStatusText = repo.hideHomeCardStatusText,
             hideHomeCardDecoration = repo.hideHomeCardDecoration,
+            homeCardStickerTransforms = repo.homeCardStickers
+                .filter { File(it.path).isFile }
+                .map { it.transform },
             uiMode = repo.uiMode,
             appIconId = repo.appIconId.takeIf { it in builtinIconIds } ?: BuiltinAppIcons.DEFAULT_ID,
             enableFloatingBottomBar = repo.enableFloatingBottomBar,
@@ -365,6 +370,9 @@ object AiThemeController : AiThemeService {
     private fun currentHomeCardFile(): File? =
         repo.homeCardImagePath.takeIf { it.isNotBlank() }
             ?.let(::File)?.takeIf { it.isFile }
+
+    private fun currentStickerFiles(): List<File> =
+        repo.homeCardStickers.map { File(it.path) }.filter { it.isFile }
 
     private fun hasBackgroundImage(): Boolean =
         repo.useSystemWallpaper || repo.customBackgroundUri.isNotBlank()

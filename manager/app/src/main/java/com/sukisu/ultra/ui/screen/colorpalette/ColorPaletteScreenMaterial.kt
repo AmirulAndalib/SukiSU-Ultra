@@ -68,6 +68,7 @@ import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.Contrast
 import androidx.compose.material.icons.rounded.Crop
 import androidx.compose.material.icons.rounded.Description
+import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.DesignServices
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.FileDownload
@@ -75,6 +76,7 @@ import androidx.compose.material.icons.rounded.FileUpload
 import androidx.compose.material.icons.rounded.Opacity
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Pin
+import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Restore
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.WaterDrop
@@ -102,6 +104,8 @@ import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -126,6 +130,9 @@ import kotlin.math.roundToInt
 import com.materialkolor.PaletteStyle
 import com.materialkolor.dynamiccolor.ColorSpec
 import com.sukisu.ultra.R
+import com.sukisu.ultra.ui.component.HomeCardStickerStage
+import com.sukisu.ultra.ui.component.HomeCardStickerThumbnail
+import com.sukisu.ultra.ui.component.themeimport.ThemeExportDialog
 import com.sukisu.ultra.ui.component.material.ExpressiveConfirmDialog
 import com.sukisu.ultra.ui.component.material.ExpressiveScaffold
 import com.sukisu.ultra.ui.component.material.CapsuleSlider
@@ -133,6 +140,7 @@ import com.sukisu.ultra.ui.component.material.ExpressiveToggleButton
 import com.sukisu.ultra.ui.component.material.IconTile
 import com.sukisu.ultra.ui.component.material.LocalListItemShapes
 import com.sukisu.ultra.ui.component.material.SegmentedColumn
+import com.sukisu.ultra.ui.component.material.SegmentedItemContainer
 import com.sukisu.ultra.ui.component.material.SegmentedDropdownItem
 import com.sukisu.ultra.ui.component.material.SegmentedListItem
 import com.sukisu.ultra.ui.component.material.SegmentedSwitchItem
@@ -140,11 +148,15 @@ import com.sukisu.ultra.ui.component.material.TonalCard
 import com.sukisu.ultra.ui.component.material.TopBarBackButton
 import com.sukisu.ultra.ui.component.material.expressiveTopAppBarColors
 import com.sukisu.ultra.ui.screen.appicon.BuiltinAppIconPreview
+import com.sukisu.ultra.ui.screen.settings.ThemePackageOptions
 import com.sukisu.ultra.ui.theme.ColorMode
 import com.sukisu.ultra.ui.theme.backgroundAwareColor
 import com.sukisu.ultra.ui.theme.keyColorOptions
 import com.sukisu.ultra.ui.theme.rememberKernelSUColorScheme
 import com.sukisu.ultra.ui.util.BuiltinAppIcons
+import com.sukisu.ultra.ui.util.HomeCardSticker
+import com.sukisu.ultra.ui.util.HomeCardStickerTransform
+import com.sukisu.ultra.ui.util.ImageStorage
 import com.sukisu.ultra.ui.util.ThemePackageStorage
 import com.sukisu.ultra.ui.viewmodel.SettingsViewModel
 
@@ -171,13 +183,31 @@ fun ColorPaletteScreenMaterial(
     val haptic = LocalHapticFeedback.current
     val context = LocalContext.current
     var showResetThemeDialog by rememberSaveable { mutableStateOf(false) }
+    var showClearAllDialog by rememberSaveable { mutableStateOf(false) }
     var showHomeTitleDialog by rememberSaveable { mutableStateOf(false) }
     var homeTitleDraft by rememberSaveable { mutableStateOf("") }
     val appearanceExpanded = state.backgroundAppearanceExpanded
     val backgroundSectionExpanded = state.backgroundSectionExpanded
     val themePackageSectionExpanded = state.themePackageSectionExpanded
     val appearanceSectionExpanded = state.appearanceSectionExpanded
+    val homeCardSectionExpanded = state.homeCardSectionExpanded
     val colorsSectionExpanded = state.colorsSectionExpanded
+    var stickerEditorExpanded by rememberSaveable { mutableStateOf(false) }
+    var stickerDraft by remember { mutableStateOf(state.homeCardStickers) }
+    var selectedSticker by rememberSaveable { mutableStateOf(0) }
+    var lastStickerCount by remember { mutableIntStateOf(state.homeCardStickers.size) }
+    LaunchedEffect(state.homeCardStickers) {
+        stickerDraft = state.homeCardStickers
+    }
+    LaunchedEffect(stickerDraft.size) {
+        if (stickerDraft.size > lastStickerCount) {
+            selectedSticker = stickerDraft.lastIndex.coerceAtLeast(0)
+        }
+        lastStickerCount = stickerDraft.size
+        if (selectedSticker > stickerDraft.lastIndex) {
+            selectedSticker = stickerDraft.lastIndex.coerceAtLeast(0)
+        }
+    }
     // Kept above the list so the preview reflects the thumb position before the value commits.
     val alphaSliderState = rememberSliderState(
         value = state.cardBackgroundAlphaPercent.toFloat(),
@@ -207,10 +237,12 @@ fun ColorPaletteScreenMaterial(
             scrimSliderState.value = state.customBackgroundScrimPercent.toFloat()
         }
     }
+    var showExportDialog by rememberSaveable { mutableStateOf(false) }
+    var pendingExportOptions by remember { mutableStateOf(ThemePackageOptions()) }
     val exportThemeLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("*/*")
     ) { uri: Uri? ->
-        uri?.let { actions.onExportTheme(context, it) }
+        uri?.let { actions.onExportTheme(context, it, pendingExportOptions) }
     }
     val exportImagesLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("*/*")
@@ -226,6 +258,11 @@ fun ColorPaletteScreenMaterial(
         contract = ActivityResultContracts.PickVisualMedia()
     ) { uri: Uri? ->
         uri?.let { actions.onPickHomeCardImage(context, it) }
+    }
+    val homeCardStickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia()
+    ) { uri: Uri? ->
+        uri?.let { actions.onPickHomeCardSticker(context, it) }
     }
 
     ExpressiveScaffold(
@@ -273,6 +310,7 @@ fun ColorPaletteScreenMaterial(
                     state.homeCardImagePath,
                     state.hideHomeCardStatusText,
                     state.hideHomeCardDecoration,
+                    state.homeCardStickers,
                 ) {
                     ThemePreviewSpec(
                         keyColor = currentKeyColor,
@@ -293,6 +331,7 @@ fun ColorPaletteScreenMaterial(
                         homeCardImagePath = state.homeCardImagePath,
                         hideHomeCardText = state.hideHomeCardStatusText,
                         hideHomeCardDecoration = state.hideHomeCardDecoration,
+                        homeCardStickers = state.homeCardStickers,
                     )
                 }
                 ThemePreviewMaterial(spec = previewSpec)
@@ -367,15 +406,16 @@ fun ColorPaletteScreenMaterial(
                         }
                         val hasCustomBgFile = hasCustomBg && !usingSystemWallpaper
                         val hasCardBgFile = state.homeCardImagePath.isNotBlank() && File(state.homeCardImagePath).isFile
-                        if (hasCustomBgFile || hasCardBgFile) {
+                        val hasStickerFile = state.homeCardStickers.any { File(it.path).isFile }
+                        if (hasCustomBgFile || hasCardBgFile || hasStickerFile) {
                             item(visible = backgroundSectionExpanded) {
                                 SegmentedListItem(
                                     onClick = {
-                                        val fileName = when {
-                                            hasCustomBgFile && hasCardBgFile -> "SukiSU-images.zip"
-                                            hasCardBgFile -> "SukiSU-home-card.png"
-                                            else -> "SukiSU-background.png"
-                                        }
+                                        val fileName = ImageStorage.exportImagesFileName(
+                                            hasBackground = hasCustomBgFile,
+                                            hasCardBackground = hasCardBgFile,
+                                            stickerCount = state.homeCardStickers.count { File(it.path).isFile },
+                                        )
                                         exportImagesLauncher.launch(fileName)
                                     },
                                     headlineContent = { Text(stringResource(id = R.string.settings_export_images)) },
@@ -637,7 +677,23 @@ fun ColorPaletteScreenMaterial(
                             },
                         )
                     }
-                    item(visible = appearanceSectionExpanded) {
+                }
+            }
+
+            item {
+                SegmentedColumn(modifier = Modifier.padding(horizontal = 16.dp)) {
+                    item {
+                        SegmentedSectionHeader(
+                            title = stringResource(R.string.settings_section_home_card),
+                            summary = stringResource(R.string.settings_section_home_card_summary),
+                            icon = Icons.Rounded.Home,
+                            expanded = homeCardSectionExpanded,
+                            onClick = {
+                                actions.onSetHomeCardSectionExpanded(!homeCardSectionExpanded)
+                            },
+                        )
+                    }
+                    item(visible = homeCardSectionExpanded) {
                         SegmentedListItem(
                             onClick = {
                                 homeCardImageLauncher.launch(
@@ -662,8 +718,204 @@ fun ColorPaletteScreenMaterial(
                             },
                         )
                     }
+                    item(visible = homeCardSectionExpanded) {
+                        SegmentedListItem(
+                            onClick = { stickerEditorExpanded = !stickerEditorExpanded },
+                            headlineContent = { Text(stringResource(R.string.settings_home_card_sticker)) },
+                            supportingContent = {
+                                Text(
+                                    (if (state.homeCardStickers.isEmpty()) {
+                                        stringResource(R.string.settings_home_card_sticker_not_set)
+                                    } else {
+                                        stringResource(
+                                            R.string.settings_home_card_sticker_count,
+                                            state.homeCardStickers.size,
+                                        )
+                                    }) + " · " + stringResource(R.string.settings_home_card_sticker_summary)
+                                )
+                            },
+                            leadingContent = {
+                                IconTile(
+                                    Icons.Rounded.Star,
+                                    stringResource(R.string.settings_home_card_sticker),
+                                )
+                            },
+                            trailingContent = {
+                                Icon(
+                                    imageVector = if (stickerEditorExpanded) {
+                                        Icons.Rounded.KeyboardArrowUp
+                                    } else {
+                                        Icons.Rounded.KeyboardArrowDown
+                                    },
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            },
+                        )
+                    }
+                    item(visible = homeCardSectionExpanded && stickerEditorExpanded) {
+                        SegmentedItemContainer {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(12.dp),
+                            ) {
+                                HomeCardStickerStage(
+                                    backgroundImagePath = state.homeCardImagePath,
+                                    stickers = stickerDraft,
+                                    selectedIndex = selectedSticker,
+                                    onSelect = { selectedSticker = it },
+                                    onTransformChange = { index, transform ->
+                                        stickerDraft = stickerDraft.mapIndexed { i, sticker ->
+                                            if (i == index) sticker.copy(transform = transform) else sticker
+                                        }
+                                    },
+                                    onTransformCommit = { index, transform ->
+                                        actions.onUpdateHomeCardStickerTransform(index, transform)
+                                    },
+                                    containerColor = backgroundAwareColor(MaterialTheme.colorScheme.primary),
+                                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                                    accentColor = MaterialTheme.colorScheme.onPrimary,
+                                    accentContentColor = MaterialTheme.colorScheme.primary,
+                                )
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    stickerDraft.forEachIndexed { index, sticker ->
+                                        HomeCardStickerThumbnail(
+                                            path = sticker.path,
+                                            selected = index == selectedSticker,
+                                            accentColor = MaterialTheme.colorScheme.primary,
+                                            onClick = { selectedSticker = index },
+                                        )
+                                    }
+                                }
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    if (stickerDraft.size < HomeCardSticker.MAX_COUNT) {
+                                        TextButton(
+                                            onClick = {
+                                                homeCardStickerLauncher.launch(
+                                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                                )
+                                            }
+                                        ) {
+                                            Text(stringResource(R.string.settings_home_card_sticker_add))
+                                        }
+                                    } else {
+                                        Text(
+                                            text = stringResource(R.string.settings_home_card_sticker_limit),
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                    if (stickerDraft.isNotEmpty()) {
+                                        TextButton(
+                                            onClick = {
+                                                actions.onRemoveHomeCardSticker(
+                                                    selectedSticker.coerceIn(0, stickerDraft.lastIndex)
+                                                )
+                                            }
+                                        ) {
+                                            Text(stringResource(R.string.settings_home_card_sticker_remove))
+                                        }
+                                    }
+                                }
+                                if (stickerDraft.isNotEmpty()) {
+                                    val editIndex = selectedSticker.coerceIn(0, stickerDraft.lastIndex)
+                                    val editTransform = stickerDraft[editIndex].transform
+                                    key(editIndex) {
+                                        val rotationSliderState = rememberSliderState(
+                                            value = editTransform.rotation,
+                                            trackRange = HomeCardStickerTransform.ROTATION_MIN..HomeCardStickerTransform.ROTATION_MAX,
+                                        )
+                                        val sizeSliderState = rememberSliderState(
+                                            value = editTransform.size,
+                                            trackRange = HomeCardStickerTransform.SIZE_MIN..HomeCardStickerTransform.SIZE_MAX,
+                                        )
+                                        LaunchedEffect(rotationSliderState.value) {
+                                            if (editTransform.rotation != rotationSliderState.value) {
+                                                stickerDraft = stickerDraft.mapIndexed { i, sticker ->
+                                                    if (i == editIndex) {
+                                                        sticker.copy(
+                                                            transform = sticker.transform.copy(
+                                                                rotation = rotationSliderState.value
+                                                            )
+                                                        )
+                                                    } else {
+                                                        sticker
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        LaunchedEffect(sizeSliderState.value) {
+                                            if (editTransform.size != sizeSliderState.value) {
+                                                stickerDraft = stickerDraft.mapIndexed { i, sticker ->
+                                                    if (i == editIndex) {
+                                                        sticker.copy(
+                                                            transform = sticker.transform.copy(
+                                                                size = sizeSliderState.value
+                                                            )
+                                                        )
+                                                    } else {
+                                                        sticker
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        LaunchedEffect(editTransform.rotation) {
+                                            if (rotationSliderState.value != editTransform.rotation) {
+                                                rotationSliderState.value = editTransform.rotation
+                                            }
+                                        }
+                                        LaunchedEffect(editTransform.size) {
+                                            if (sizeSliderState.value != editTransform.size) {
+                                                sizeSliderState.value = editTransform.size
+                                            }
+                                        }
+                                        BackgroundSliderHeader(
+                                            icon = Icons.Rounded.Refresh,
+                                            title = stringResource(R.string.settings_home_card_sticker_rotation),
+                                            summary = "${editTransform.rotation.roundToInt()}°",
+                                        )
+                                        CapsuleSlider(
+                                            state = rotationSliderState,
+                                            onValueChangeFinished = {
+                                                val snapped = editTransform.copy(
+                                                    rotation = rotationSliderState.value.roundToInt().toFloat()
+                                                )
+                                                stickerDraft = stickerDraft.mapIndexed { i, sticker ->
+                                                    if (i == editIndex) sticker.copy(transform = snapped) else sticker
+                                                }
+                                                actions.onUpdateHomeCardStickerTransform(editIndex, snapped)
+                                            },
+                                            modifier = Modifier.fillMaxWidth(),
+                                        )
+                                        HorizontalDivider()
+                                        BackgroundSliderHeader(
+                                            icon = Icons.Rounded.AspectRatio,
+                                            title = stringResource(R.string.settings_home_card_sticker_size),
+                                            summary = "${(editTransform.size * 100).roundToInt()}%",
+                                        )
+                                        CapsuleSlider(
+                                            state = sizeSliderState,
+                                            onValueChangeFinished = {
+                                                val updated = editTransform.copy(size = sizeSliderState.value)
+                                                stickerDraft = stickerDraft.mapIndexed { i, sticker ->
+                                                    if (i == editIndex) sticker.copy(transform = updated) else sticker
+                                                }
+                                                actions.onUpdateHomeCardStickerTransform(editIndex, updated)
+                                            },
+                                            modifier = Modifier.fillMaxWidth(),
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
                     if (state.homeCardImagePath.isNotBlank()) {
-                        item(visible = appearanceSectionExpanded) {
+                        item(visible = homeCardSectionExpanded) {
                             SegmentedSwitchItem(
                                 icon = Icons.Rounded.Star,
                                 title = stringResource(R.string.settings_hide_home_card_decoration),
@@ -672,7 +924,7 @@ fun ColorPaletteScreenMaterial(
                                 onCheckedChange = actions.onSetHideHomeCardDecoration,
                             )
                         }
-                        item(visible = appearanceSectionExpanded) {
+                        item(visible = homeCardSectionExpanded) {
                             SegmentedSwitchItem(
                                 icon = Icons.Rounded.Home,
                                 title = stringResource(R.string.settings_hide_home_card_status_text),
@@ -681,7 +933,7 @@ fun ColorPaletteScreenMaterial(
                                 onCheckedChange = actions.onSetHideHomeCardStatusText,
                             )
                         }
-                        item(visible = appearanceSectionExpanded) {
+                        item(visible = homeCardSectionExpanded) {
                             SegmentedListItem(
                                 onClick = actions.onClearHomeCardImage,
                                 headlineContent = { Text(stringResource(R.string.settings_home_card_image_clear)) },
@@ -699,9 +951,9 @@ fun ColorPaletteScreenMaterial(
                     }
                 }
             }
-
             item {
                 SegmentedColumn(modifier = Modifier.padding(horizontal = 16.dp)) {
+
                     item {
                         SegmentedSectionHeader(
                             title = stringResource(R.string.settings_section_colors),
@@ -712,6 +964,61 @@ fun ColorPaletteScreenMaterial(
                                 actions.onSetColorsSectionExpanded(!colorsSectionExpanded)
                             },
                         )
+                    }
+                    item(visible = colorsSectionExpanded) {
+                        SegmentedItemContainer {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                val options = listOf(
+                                    listOf(ColorMode.SYSTEM) to stringResource(R.string.settings_theme_mode_system),
+                                    listOf(ColorMode.LIGHT) to stringResource(R.string.settings_theme_mode_light),
+                                    listOf(ColorMode.DARK) to stringResource(R.string.settings_theme_mode_dark),
+                                    listOf(ColorMode.DARK_AMOLED) to stringResource(R.string.settings_theme_mode_dark)
+                                )
+
+                                options.chunked(4).forEach { rowOptions ->
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween)
+                                    ) {
+                                        rowOptions.forEachIndexed { index, (modes, label) ->
+                                            ExpressiveToggleButton(
+                                                checked = currentColorMode in modes,
+                                                onCheckedChange = {
+                                                    if (it) {
+                                                        haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
+                                                        actions.onSetColorMode(modes.first())
+                                                    }
+                                                },
+                                                modifier = Modifier
+                                                    .weight(1f)
+                                                    .semantics { role = Role.RadioButton },
+                                                shapes = when (index) {
+                                                    0 -> ButtonGroupDefaults.connectedLeadingButtonShapes()
+                                                    rowOptions.lastIndex -> ButtonGroupDefaults.connectedTrailingButtonShapes()
+                                                    else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
+                                                },
+                                            ) {
+                                                Icon(
+                                                    imageVector = when (modes.first()) {
+                                                        ColorMode.SYSTEM -> Icons.Filled.Brightness4
+                                                        ColorMode.LIGHT -> Icons.Filled.Brightness7
+                                                        ColorMode.DARK -> Icons.Filled.Brightness3
+                                                        ColorMode.DARK_AMOLED -> Icons.Filled.Brightness1
+                                                        else -> Icons.Filled.Brightness4
+                                                    },
+                                                    contentDescription = label
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                     item(visible = colorsSectionExpanded) {
                         val swatchShape = LocalListItemShapes.current?.shape
@@ -756,93 +1063,31 @@ fun ColorPaletteScreenMaterial(
                             }
                         }
                     }
-                }
-            }
-
-            item {
-                val options = listOf(
-                    listOf(ColorMode.SYSTEM) to stringResource(R.string.settings_theme_mode_system),
-                    listOf(ColorMode.LIGHT) to stringResource(R.string.settings_theme_mode_light),
-                    listOf(ColorMode.DARK) to stringResource(R.string.settings_theme_mode_dark),
-                    listOf(ColorMode.DARK_AMOLED) to stringResource(R.string.settings_theme_mode_dark)
-                )
-
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    options.chunked(4).forEach { rowOptions ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween)
-                        ) {
-                            rowOptions.forEachIndexed { index, (modes, label) ->
-                                ExpressiveToggleButton(
-                                    checked = currentColorMode in modes,
-                                    onCheckedChange = {
-                                        if (it) {
-                                            haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
-                                            actions.onSetColorMode(modes.first())
-                                        }
-                                    },
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .semantics { role = Role.RadioButton },
-                                    shapes = when (index) {
-                                        0 -> ButtonGroupDefaults.connectedLeadingButtonShapes()
-                                        rowOptions.lastIndex -> ButtonGroupDefaults.connectedTrailingButtonShapes()
-                                        else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
-                                    },
-                                ) {
-                                    Icon(
-                                        imageVector = when (modes.first()) {
-                                            ColorMode.SYSTEM -> Icons.Filled.Brightness4
-                                            ColorMode.LIGHT -> Icons.Filled.Brightness7
-                                            ColorMode.DARK -> Icons.Filled.Brightness3
-                                            ColorMode.DARK_AMOLED -> Icons.Filled.Brightness1
-                                            else -> Icons.Filled.Brightness4
-                                        },
-                                        contentDescription = label
-                                    )
-                                }
+                    item(visible = colorsSectionExpanded) {
+                        val styles = PaletteStyle.entries
+                        SegmentedDropdownItem(
+                            icon = Icons.Rounded.Style,
+                            title = stringResource(R.string.settings_color_style),
+                            items = styles.map { it.name },
+                            selectedIndex = styles.indexOf(colorStyle),
+                            onItemSelected = { index ->
+                                actions.onSetColorStyle(styles[index].name)
                             }
-                        }
+                        )
+                    }
+                    item(visible = colorsSectionExpanded) {
+                        val specs = ColorSpec.SpecVersion.entries
+                        SegmentedDropdownItem(
+                            icon = Icons.Rounded.DesignServices,
+                            title = stringResource(R.string.settings_color_spec),
+                            items = specs.map { it.name },
+                            selectedIndex = specs.indexOf(colorSpec).coerceAtLeast(0),
+                            onItemSelected = { index ->
+                                actions.onSetColorSpec(specs[index].name)
+                            }
+                        )
                     }
                 }
-            }
-
-            item {
-                SegmentedColumn(
-                    modifier = Modifier.padding(horizontal = 16.dp),
-                    content = listOf<@Composable () -> Unit>(
-                        {
-                            val styles = PaletteStyle.entries
-                            SegmentedDropdownItem(
-                                icon = Icons.Rounded.Style,
-                                title = stringResource(R.string.settings_color_style),
-                                items = styles.map { it.name },
-                                selectedIndex = styles.indexOf(colorStyle),
-                                onItemSelected = { index ->
-                                    actions.onSetColorStyle(styles[index].name)
-                                }
-                            )
-                        },
-                        {
-                            val specs = ColorSpec.SpecVersion.entries
-                            SegmentedDropdownItem(
-                                icon = Icons.Rounded.DesignServices,
-                                title = stringResource(R.string.settings_color_spec),
-                                items = specs.map { it.name },
-                                selectedIndex = specs.indexOf(colorSpec).coerceAtLeast(0),
-                                onItemSelected = { index ->
-                                    actions.onSetColorSpec(specs[index].name)
-                                }
-                            )
-                        }
-                    )
-                )
             }
 
             item {
@@ -868,6 +1113,14 @@ fun ColorPaletteScreenMaterial(
                     }
                     item(visible = themePackageSectionExpanded) {
                         SegmentedListItem(
+                            onClick = { showClearAllDialog = true },
+                            headlineContent = { Text(stringResource(id = R.string.theme_clear_all)) },
+                            supportingContent = { Text(stringResource(id = R.string.theme_clear_all_summary)) },
+                            leadingContent = { IconTile(Icons.Rounded.Delete, stringResource(id = R.string.theme_clear_all)) },
+                        )
+                    }
+                    item(visible = themePackageSectionExpanded) {
+                        SegmentedListItem(
                             onClick = {
                                 importThemeLauncher.launch(
                                     arrayOf(
@@ -886,9 +1139,9 @@ fun ColorPaletteScreenMaterial(
                     }
                     item(visible = themePackageSectionExpanded) {
                         SegmentedListItem(
-                            onClick = {
-                                exportThemeLauncher.launch(ThemePackageStorage.packageFileName())
-                            },
+                                onClick = {
+                                    showExportDialog = true
+                                },
                             headlineContent = { Text(stringResource(id = R.string.theme_export)) },
                             supportingContent = { Text(stringResource(id = R.string.theme_export_summary)) },
                             leadingContent = { IconTile(Icons.Rounded.FileUpload, stringResource(id = R.string.theme_export)) },
@@ -1138,6 +1391,35 @@ fun ColorPaletteScreenMaterial(
             onDismiss = { showResetThemeDialog = false },
         )
     }
+
+    if (showClearAllDialog) {
+        ExpressiveConfirmDialog(
+            title = stringResource(R.string.theme_clear_all_confirm_title),
+            message = stringResource(R.string.theme_clear_all_confirm_message),
+            confirmText = stringResource(R.string.theme_clear_all),
+            dismissText = stringResource(android.R.string.cancel),
+            onConfirm = {
+                showClearAllDialog = false
+                actions.onClearAllAppearance()
+            },
+            onDismiss = { showClearAllDialog = false },
+        )
+    }
+
+    ThemeExportDialog(
+        show = showExportDialog,
+        hasBackgroundImage = state.useSystemWallpaper || state.customBackgroundUri.isNotBlank(),
+        hasCardImage = state.homeCardImagePath.isNotBlank(),
+        hasStickers = state.homeCardStickers.isNotEmpty(),
+        hasAppIcon = true,
+        hasCustomTexts = uiState.customTexts.isNotEmpty() || uiState.customHomeTitle.isNotBlank(),
+        onDismissRequest = { showExportDialog = false },
+        onConfirm = { options ->
+            showExportDialog = false
+            pendingExportOptions = options
+            exportThemeLauncher.launch(ThemePackageStorage.packageFileName())
+        },
+    )
 }
 
 @Composable
@@ -1304,16 +1586,15 @@ private fun appearanceSectionIndex(section: String?): Int? {
     return when (id) {
         "preview" -> 0
         "background" -> 1
-        "theme_package" -> 2
-        "appearance" -> 3
-        "colors" -> 4
-        "color_mode" -> 5
-        "palette" -> 6
-        "chrome", "bottom_bar" -> 7
-        "predictive_back" -> if (hasPredictive) 8 else 7
-        "behavior", "gestures" -> if (hasPredictive) 9 else 8
-        "scale" -> if (hasPredictive) 10 else 9
-        "module_description" -> if (hasPredictive) 11 else 10
+        "appearance" -> 2
+        "home_card", "sticker" -> 3
+        "colors", "color_mode", "palette" -> 4
+        "theme_package" -> 5
+        "chrome", "bottom_bar" -> 6
+        "predictive_back" -> if (hasPredictive) 7 else 6
+        "behavior", "gestures" -> if (hasPredictive) 8 else 7
+        "scale" -> if (hasPredictive) 9 else 8
+        "module_description" -> if (hasPredictive) 10 else 9
         else -> null
     }
 }

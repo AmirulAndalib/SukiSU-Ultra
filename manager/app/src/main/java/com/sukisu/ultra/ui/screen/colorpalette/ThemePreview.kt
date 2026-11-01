@@ -100,6 +100,7 @@ import com.materialkolor.dynamiccolor.ColorSpec
 import com.sukisu.ultra.BuildConfig
 import com.sukisu.ultra.R
 import com.sukisu.ultra.ui.component.material.IconTile
+import com.sukisu.ultra.ui.component.HomeCardStickerOverlays
 import com.sukisu.ultra.ui.component.material.SegmentedColumn
 import com.sukisu.ultra.ui.component.material.SegmentedListItem
 import com.sukisu.ultra.ui.component.material.expressiveTopAppBarColors
@@ -117,6 +118,7 @@ import com.sukisu.ultra.ui.theme.backgroundAwareColor
 import com.sukisu.ultra.ui.theme.effectiveFor
 import com.sukisu.ultra.ui.theme.rememberKernelSUColorScheme
 import com.sukisu.ultra.ui.util.ImageStorage
+import com.sukisu.ultra.ui.util.HomeCardSticker
 import com.sukisu.ultra.ui.util.drawPainterCover
 import top.yukonga.miuix.kmp.basic.Badge as MiuixBadge
 import top.yukonga.miuix.kmp.basic.BadgedBox as MiuixBadgedBox
@@ -160,6 +162,7 @@ internal data class ThemePreviewSpec(
     val homeCardImagePath: String = "",
     val hideHomeCardText: Boolean = false,
     val hideHomeCardDecoration: Boolean = false,
+    val homeCardStickers: List<HomeCardSticker> = emptyList(),
 )
 
 private const val PreviewDesignWidthDp = 360f
@@ -628,7 +631,7 @@ private fun MiuixPreviewHeroCard(spec: ThemePreviewSpec) {
             contentColor = colors.onSurface,
         ),
     ) {
-        Box(modifier = Modifier.fillMaxSize()) {
+        BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
             if (!(spec.homeCardImagePath.isNotEmpty() && spec.hideHomeCardDecoration)) {
                 MiuixIcon(
                     imageVector = Icons.Rounded.CheckCircleOutline,
@@ -675,6 +678,10 @@ private fun MiuixPreviewHeroCard(spec: ThemePreviewSpec) {
                     }
                 }
             }
+            HomeCardStickerOverlays(
+                stickers = spec.homeCardStickers,
+                cardWidth = maxWidth,
+            )
         }
     }
 }
@@ -1017,7 +1024,7 @@ private fun MaterialPreviewHeroCard(spec: ThemePreviewSpec) {
         shape = heroShape,
         color = if (cardImagePainter != null) Color.Transparent else backgroundAwareColor(colors.primary),
     ) {
-        Box(
+        BoxWithConstraints(
             modifier = if (spec.homeCardImagePath.isNotEmpty() && spec.hideHomeCardDecoration) {
                 Modifier.fillMaxSize()
             } else {
@@ -1059,6 +1066,10 @@ private fun MaterialPreviewHeroCard(spec: ThemePreviewSpec) {
                     }
                 }
             }
+            HomeCardStickerOverlays(
+                stickers = spec.homeCardStickers,
+                cardWidth = maxWidth,
+            )
         }
     }
 }

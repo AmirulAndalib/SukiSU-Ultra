@@ -7,6 +7,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -60,6 +61,7 @@ import com.sukisu.ultra.KernelVersion
 import com.sukisu.ultra.Natives
 import com.sukisu.ultra.R
 import com.sukisu.ultra.ui.component.WarningLevel
+import com.sukisu.ultra.ui.component.HomeCardStickerOverlays
 import com.sukisu.ultra.ui.component.dialog.rememberConfirmDialog
 import com.sukisu.ultra.ui.component.miuix.AppCard
 import com.sukisu.ultra.ui.component.miuix.AppScaffold
@@ -371,7 +373,7 @@ private fun ActiveStatusCard(
         showIndication = !state.isLateLoadMode,
         pressFeedbackType = PressFeedbackType.Tilt
     ) {
-        Box {
+        BoxWithConstraints {
             if (!(state.homeCardImagePath.isNotEmpty() && state.hideHomeCardDecoration)) {
                 Icon(
                     modifier = Modifier
@@ -442,6 +444,10 @@ private fun ActiveStatusCard(
                     }
                 }
             }
+            HomeCardStickerOverlays(
+                stickers = state.homeCardStickers,
+                cardWidth = maxWidth,
+            )
         }
     }
 }

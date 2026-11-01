@@ -4,7 +4,10 @@ import androidx.compose.runtime.Immutable
 import com.materialkolor.PaletteStyle
 import com.materialkolor.dynamiccolor.ColorSpec
 import com.sukisu.ultra.ui.screen.settings.SettingsUiState
+import com.sukisu.ultra.ui.screen.settings.ThemePackageOptions
 import com.sukisu.ultra.ui.theme.ColorMode
+import com.sukisu.ultra.ui.util.HomeCardSticker
+import com.sukisu.ultra.ui.util.HomeCardStickerTransform
 
 /**
  * Everything the appearance page renders, resolved once in
@@ -39,6 +42,7 @@ data class ColorPaletteUiState(
     val homeCardImagePath: String = "",
     val hideHomeCardStatusText: Boolean = false,
     val hideHomeCardDecoration: Boolean = false,
+    val homeCardStickers: List<HomeCardSticker> = emptyList(),
     // The rows below the preview.
     val themeMode: Int = 0,
     val colorStyle: String = "",
@@ -48,6 +52,7 @@ data class ColorPaletteUiState(
     val backgroundSectionExpanded: Boolean = true,
     val themePackageSectionExpanded: Boolean = true,
     val appearanceSectionExpanded: Boolean = true,
+    val homeCardSectionExpanded: Boolean = true,
     val colorsSectionExpanded: Boolean = true,
     val showFullStatus: Boolean = false,
     val hideHomeWarnings: Boolean = false,
@@ -81,6 +86,7 @@ data class ColorPaletteScreenActions(
     val onSetBackgroundSectionExpanded: (Boolean) -> Unit = {},
     val onSetThemePackageSectionExpanded: (Boolean) -> Unit = {},
     val onSetAppearanceSectionExpanded: (Boolean) -> Unit = {},
+    val onSetHomeCardSectionExpanded: (Boolean) -> Unit = {},
     val onSetColorsSectionExpanded: (Boolean) -> Unit = {},
     val onSetCustomHomeTitle: (String) -> Unit = {},
     val onPickCustomBackground: (android.content.Context, android.net.Uri) -> Unit = { _, _ -> },
@@ -90,19 +96,23 @@ data class ColorPaletteScreenActions(
     val onClearHomeCardImage: () -> Unit = {},
     val onSetHideHomeCardStatusText: (Boolean) -> Unit = {},
     val onSetHideHomeCardDecoration: (Boolean) -> Unit = {},
+    val onPickHomeCardSticker: (android.content.Context, android.net.Uri) -> Unit = { _, _ -> },
+    val onRemoveHomeCardSticker: (Int) -> Unit = {},
+    val onUpdateHomeCardStickerTransform: (Int, HomeCardStickerTransform) -> Unit = { _, _ -> },
     val onSetUseSystemWallpaper: (android.content.Context, Boolean) -> Unit = { _, _ -> },
     val onSetExtractColorFromBackground: (Boolean) -> Unit = {},
     val onSetCardBackgroundAlphaPercent: (Int) -> Unit = {},
     val onSetCustomBackgroundBlurPercent: (Int) -> Unit = {},
     val onSetCustomBackgroundScrimPercent: (Int) -> Unit = {},
-    val onExportTheme: (android.content.Context, android.net.Uri) -> Unit = { _, _ -> },
+    val onExportTheme: (android.content.Context, android.net.Uri, ThemePackageOptions) -> Unit = { _, _, _ -> },
     val onImportTheme: (android.content.Context, android.net.Uri) -> Unit = { _, _ -> },
     val onExportImages: (android.content.Context, android.net.Uri) -> Unit = { _, _ -> },
     val onExportCustomBackground: (android.content.Context, android.net.Uri) -> Unit = { _, _ -> },
-    val onConfirmImportTheme: (android.content.Context, com.sukisu.ultra.ui.screen.settings.ThemeImportOptions) -> Unit = { _, _ -> },
+    val onConfirmImportTheme: (android.content.Context, ThemePackageOptions) -> Unit = { _, _ -> },
     val onDismissImportThemeDialog: () -> Unit = {},
     val onSetCustomText: (String, String) -> Unit = { _, _ -> },
     val onResetAllCustomTexts: () -> Unit = {},
     val onOpenCustomTexts: () -> Unit = {},
     val onResetBackgroundAppearance: () -> Unit = {},
+    val onClearAllAppearance: () -> Unit = {},
 )

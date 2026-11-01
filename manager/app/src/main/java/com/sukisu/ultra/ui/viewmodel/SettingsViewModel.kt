@@ -28,12 +28,15 @@ import com.sukisu.ultra.data.repository.SettingsRepositoryImpl
 import com.sukisu.ultra.ksuApp
 import com.sukisu.ultra.ui.screen.colorpalette.ColorPaletteUiState
 import com.sukisu.ultra.ui.screen.settings.SettingsUiState
+import com.sukisu.ultra.ui.screen.settings.ThemePackageOptions
 import com.sukisu.ultra.ui.theme.ColorMode
 import com.sukisu.ultra.ui.theme.ThemeController
 import com.sukisu.ultra.ui.util.ImageStorage
 import com.sukisu.ultra.ui.screen.module.ModuleNameSort
 import com.sukisu.ultra.ui.util.BuiltinAppIcon
 import com.sukisu.ultra.ui.util.BuiltinAppIcons
+import com.sukisu.ultra.ui.util.HomeCardSticker
+import com.sukisu.ultra.ui.util.HomeCardStickerTransform
 import com.sukisu.ultra.ui.util.ImportedTheme
 import com.sukisu.ultra.ui.util.ThemePackageData
 import com.sukisu.ultra.ui.util.ThemePackageStorage
@@ -52,12 +55,14 @@ class SettingsViewModel(
         backgroundSectionExpanded = repo.backgroundSectionExpanded,
         themePackageSectionExpanded = repo.themePackageSectionExpanded,
         appearanceSectionExpanded = repo.appearanceSectionExpanded,
+        homeCardSectionExpanded = repo.homeCardSectionExpanded,
         colorsSectionExpanded = repo.colorsSectionExpanded,
         customHomeTitle = repo.customHomeTitle,
         customTexts = repo.customTexts,
         homeCardImagePath = repo.homeCardImagePath,
         hideHomeCardStatusText = repo.hideHomeCardStatusText,
         hideHomeCardDecoration = repo.hideHomeCardDecoration,
+        homeCardStickers = repo.homeCardStickers,
     ))
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
 
@@ -169,12 +174,14 @@ class SettingsViewModel(
                     backgroundSectionExpanded = repo.backgroundSectionExpanded,
                     themePackageSectionExpanded = repo.themePackageSectionExpanded,
                     appearanceSectionExpanded = repo.appearanceSectionExpanded,
+                    homeCardSectionExpanded = repo.homeCardSectionExpanded,
                     colorsSectionExpanded = repo.colorsSectionExpanded,
                     customHomeTitle = repo.customHomeTitle,
                     customTexts = repo.customTexts,
         homeCardImagePath = repo.homeCardImagePath,
                     hideHomeCardStatusText = repo.hideHomeCardStatusText,
                     hideHomeCardDecoration = repo.hideHomeCardDecoration,
+                    homeCardStickers = repo.homeCardStickers,
                     themeMode = themeMode,
                     miuixMonet = miuixMonet,
                     keyColor = keyColor,
@@ -508,6 +515,45 @@ class SettingsViewModel(
         _uiState.update { it.copy(hideHomeCardDecoration = hidden) }
     }
 
+    fun addHomeCardSticker(context: Context, uri: Uri) {
+        viewModelScope.launch {
+            val current = _uiState.value.homeCardStickers
+            if (current.size >= HomeCardSticker.MAX_COUNT) {
+                Toast.makeText(context, R.string.settings_home_card_sticker_limit, Toast.LENGTH_SHORT).show()
+                return@launch
+            }
+            val path = ImageStorage.saveHomeCardSticker(context, uri)
+            if (path != null) {
+                val updated = current + HomeCardSticker(path)
+                repo.homeCardStickers = updated
+                _uiState.update { it.copy(homeCardStickers = updated) }
+            } else {
+                Toast.makeText(context, R.string.home_card_image_failed, Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    fun removeHomeCardSticker(index: Int) {
+        val current = _uiState.value.homeCardStickers
+        val sticker = current.getOrNull(index) ?: return
+        viewModelScope.launch {
+            ImageStorage.deleteHomeCardSticker(ksuApp, sticker.path)
+            val updated = current.filterIndexed { i, _ -> i != index }
+            repo.homeCardStickers = updated
+            _uiState.update { it.copy(homeCardStickers = updated) }
+        }
+    }
+
+    fun updateHomeCardStickerTransform(index: Int, transform: HomeCardStickerTransform) {
+        val current = _uiState.value.homeCardStickers
+        if (index !in current.indices) return
+        val updated = current.toMutableList().apply {
+            this[index] = this[index].copy(transform = transform.coerced())
+        }
+        repo.homeCardStickers = updated
+        _uiState.update { it.copy(homeCardStickers = updated) }
+    }
+
     fun exportImages(context: Context, uri: Uri) {
         viewModelScope.launch(Dispatchers.IO) {
             val state = _uiState.value
@@ -517,13 +563,16 @@ class SettingsViewModel(
             val cardBackgroundFile = state.homeCardImagePath
                 .takeIf { it.isNotEmpty() }
                 ?.let { File(it).takeIf { f -> f.isFile } }
-            if (backgroundFile == null && cardBackgroundFile == null) {
+            val stickerFiles = state.homeCardStickers
+                .map { File(it.path) }
+                .filter { it.isFile }
+            if (backgroundFile == null && cardBackgroundFile == null && stickerFiles.isEmpty()) {
                 withContext(Dispatchers.Main) {
                     Toast.makeText(ksuApp, R.string.theme_export_failed, Toast.LENGTH_SHORT).show()
                 }
                 return@launch
             }
-            ImageStorage.exportImages(context, uri, backgroundFile, cardBackgroundFile)
+            ImageStorage.exportImages(context, uri, backgroundFile, cardBackgroundFile, stickerFiles)
                 .onSuccess {
                     withContext(Dispatchers.Main) {
                         Toast.makeText(ksuApp, R.string.theme_export_success, Toast.LENGTH_SHORT).show()
@@ -539,19 +588,29 @@ class SettingsViewModel(
 
     fun exportCustomBackground(context: Context, uri: Uri) = exportImages(context, uri)
 
-    fun exportTheme(context: Context, uri: Uri) {
+    fun exportTheme(context: Context, uri: Uri, options: ThemePackageOptions) {
         viewModelScope.launch {
             val state = _uiState.value
-            val backgroundFile = if (state.useSystemWallpaper) {
-                ImageStorage.systemWallpaperFile(ksuApp).takeIf { it.isFile }
-            } else {
-                state.customBackgroundUri
+            val backgroundFile = if (options.backgroundImage) {
+                if (state.useSystemWallpaper) {
+                    ImageStorage.systemWallpaperFile(ksuApp).takeIf { it.isFile }
+                } else {
+                    state.customBackgroundUri
+                        .takeIf { it.isNotEmpty() }
+                        ?.let { path -> File(path).takeIf { it.isFile } }
+                }
+            } else null
+            val cardBackgroundFile = if (options.homeCardImage) {
+                state.homeCardImagePath
                     .takeIf { it.isNotEmpty() }
                     ?.let { path -> File(path).takeIf { it.isFile } }
+            } else null
+            val stickerEntries = if (options.stickers) {
+                state.homeCardStickers.filter { File(it.path).isFile }
+            } else {
+                emptyList()
             }
-            val cardBackgroundFile = state.homeCardImagePath
-                .takeIf { it.isNotEmpty() }
-                ?.let { path -> File(path).takeIf { it.isFile } }
+            val cardStickerFiles = stickerEntries.map { File(it.path) }
             val builtinIconIds = setOf(
                 BuiltinAppIcons.DEFAULT_ID,
                 BuiltinAppIcons.KERNELSU_ID,
@@ -564,36 +623,49 @@ class SettingsViewModel(
                 BuiltinAppIcons.DEFAULT_ID
             }
             val data = ThemePackageData(
-                themeMode = state.themeMode,
-                miuixMonet = state.miuixMonet,
-                keyColor = state.keyColor,
-                colorStyle = state.colorStyle,
-                colorSpec = state.colorSpec,
-                cardBackgroundAlphaPercent = state.cardBackgroundAlphaPercent,
-                customBackgroundBlurPercent = state.customBackgroundBlurPercent,
-                customBackgroundScrimPercent = state.customBackgroundScrimPercent,
-                hasBackground = backgroundFile != null,
-                hasCardBackground = cardBackgroundFile != null,
-                hideHomeCardStatusText = state.hideHomeCardStatusText,
-                hideHomeCardDecoration = state.hideHomeCardDecoration,
-                uiMode = state.uiMode,
-                appIconId = exportedIconId,
-                enableFloatingBottomBar = state.enableFloatingBottomBar,
-                enableFloatingBottomBarBlur = state.enableFloatingBottomBarBlur,
-                enableNavigationBadge = state.enableNavigationBadge,
-                enablePredictiveBack = repo.enablePredictiveBack,
-                enableSwipeDismiss = repo.enableSwipeDismiss,
-                moduleSortEnabledFirst = repo.moduleSortEnabledFirst,
-                moduleSortActionFirst = repo.moduleSortActionFirst,
-                moduleSortWebUiFirst = repo.moduleSortWebUiFirst,
-                moduleSortZygiskFirst = repo.moduleSortZygiskFirst,
-                moduleSortMetamoduleFirst = repo.moduleSortMetamoduleFirst,
-                moduleSortNameOrder = repo.moduleSortNameOrder,
-                moduleSortManual = repo.moduleSortManual,
-                customHomeTitle = state.customHomeTitle.takeIf { it.isNotBlank() },
-                customTexts = state.customTexts.takeIf { it.isNotEmpty() },
+                themeMode = state.themeMode.takeIf { options.colors },
+                miuixMonet = state.miuixMonet.takeIf { options.colors },
+                keyColor = state.keyColor.takeIf { options.colors },
+                colorStyle = state.colorStyle.takeIf { options.colors },
+                colorSpec = state.colorSpec.takeIf { options.colors },
+                cardBackgroundAlphaPercent = state.cardBackgroundAlphaPercent.takeIf { options.backgroundAppearance },
+                customBackgroundBlurPercent = state.customBackgroundBlurPercent.takeIf { options.backgroundAppearance },
+                customBackgroundScrimPercent = state.customBackgroundScrimPercent.takeIf { options.backgroundAppearance },
+                hasBackground = if (options.backgroundImage) backgroundFile != null else null,
+                hasCardBackground = if (options.homeCardImage) cardBackgroundFile != null else null,
+                hideHomeCardStatusText = state.hideHomeCardStatusText.takeIf { options.homeCardDisplay },
+                hideHomeCardDecoration = state.hideHomeCardDecoration.takeIf { options.homeCardDisplay },
+                homeCardStickerTransforms = if (options.stickers) {
+                    stickerEntries.map { it.transform }
+                } else {
+                    null
+                },
+                uiMode = state.uiMode.takeIf { options.customConfig },
+                appIconId = exportedIconId.takeIf { options.appIcon },
+                enableFloatingBottomBar = state.enableFloatingBottomBar.takeIf { options.customConfig },
+                enableFloatingBottomBarBlur = state.enableFloatingBottomBarBlur.takeIf { options.customConfig },
+                enableNavigationBadge = state.enableNavigationBadge.takeIf { options.customConfig },
+                enablePredictiveBack = repo.enablePredictiveBack.takeIf { options.customConfig },
+                enableSwipeDismiss = repo.enableSwipeDismiss.takeIf { options.customConfig },
+                moduleSortEnabledFirst = repo.moduleSortEnabledFirst.takeIf { options.customConfig },
+                moduleSortActionFirst = repo.moduleSortActionFirst.takeIf { options.customConfig },
+                moduleSortWebUiFirst = repo.moduleSortWebUiFirst.takeIf { options.customConfig },
+                moduleSortZygiskFirst = repo.moduleSortZygiskFirst.takeIf { options.customConfig },
+                moduleSortMetamoduleFirst = repo.moduleSortMetamoduleFirst.takeIf { options.customConfig },
+                moduleSortNameOrder = repo.moduleSortNameOrder.takeIf { options.customConfig },
+                moduleSortManual = repo.moduleSortManual.takeIf { options.customConfig },
+                customHomeTitle = if (options.customTexts) {
+                    state.customHomeTitle.takeIf { it.isNotBlank() }
+                } else {
+                    null
+                },
+                customTexts = if (options.customTexts) {
+                    state.customTexts.takeIf { it.isNotEmpty() }
+                } else {
+                    null
+                },
             )
-            ThemePackageStorage.export(context, uri, data, backgroundFile, cardBackgroundFile)
+            ThemePackageStorage.export(context, uri, data, backgroundFile, cardBackgroundFile, cardStickerFiles)
                 .onSuccess {
                     Toast.makeText(ksuApp, R.string.theme_export_success, Toast.LENGTH_SHORT).show()
                 }
@@ -628,6 +700,9 @@ class SettingsViewModel(
         if (pending?.cardBackgroundPath != null) {
             runCatching { File(pending.cardBackgroundPath).delete() }
         }
+        if (pending?.stickerPaths != null) {
+            pending.stickerPaths.forEach { runCatching { File(it).delete() } }
+        }
         _uiState.update {
             it.copy(
                 pendingImportTheme = null,
@@ -636,7 +711,7 @@ class SettingsViewModel(
         }
     }
 
-    fun confirmImportTheme(context: Context, options: com.sukisu.ultra.ui.screen.settings.ThemeImportOptions) {
+    fun confirmImportTheme(context: Context, options: ThemePackageOptions) {
         val pending = _uiState.value.pendingImportTheme ?: return
         viewModelScope.launch {
             applyImportedTheme(context, pending, options)
@@ -653,7 +728,7 @@ class SettingsViewModel(
     private suspend fun applyImportedTheme(
         context: Context,
         imported: ImportedTheme,
-        options: com.sukisu.ultra.ui.screen.settings.ThemeImportOptions,
+        options: ThemePackageOptions,
     ) {
         val current = _uiState.value
         val data = imported.data
@@ -668,8 +743,10 @@ class SettingsViewModel(
         var scrimPercent = current.customBackgroundScrimPercent
         var targetUiMode = current.uiMode
         var hideHomeCardDecoration = current.hideHomeCardDecoration
+        var hideHomeCardStatusText = current.hideHomeCardStatusText
+        var homeCardStickers = current.homeCardStickers
 
-        if (options.importAppearance) {
+        if (options.colors) {
             themeMode = data.themeMode?.takeIf { it in 0..6 } ?: current.themeMode
             miuixMonet = data.miuixMonet ?: current.miuixMonet
             keyColor = data.keyColor ?: current.keyColor
@@ -679,6 +756,15 @@ class SettingsViewModel(
             colorSpec = data.colorSpec
                 ?.takeIf { name -> runCatching { ColorSpec.SpecVersion.valueOf(name) }.isSuccess }
                 ?: current.colorSpec
+
+            repo.themeMode = themeMode
+            repo.miuixMonet = miuixMonet
+            repo.keyColor = keyColor
+            repo.colorStyle = colorStyle
+            repo.colorSpec = colorSpec
+        }
+
+        if (options.backgroundAppearance) {
             cardAlpha = (data.cardBackgroundAlphaPercent ?: current.cardBackgroundAlphaPercent)
                 .coerceIn(ImageStorage.CARD_ALPHA_MIN, ImageStorage.CARD_ALPHA_MAX)
             blurPercent = (data.customBackgroundBlurPercent ?: current.customBackgroundBlurPercent)
@@ -686,20 +772,19 @@ class SettingsViewModel(
             scrimPercent = (data.customBackgroundScrimPercent ?: current.customBackgroundScrimPercent)
                 .coerceIn(ImageStorage.BACKGROUND_SCRIM_MIN, ImageStorage.BACKGROUND_SCRIM_MAX)
 
-            targetUiMode = data.uiMode?.takeIf { it == "miuix" || it == "material" } ?: current.uiMode
-            repo.uiMode = targetUiMode
-            repo.themeMode = themeMode
-            repo.miuixMonet = miuixMonet
-            repo.keyColor = keyColor
-            repo.colorStyle = colorStyle
-            repo.colorSpec = colorSpec
             repo.cardBackgroundAlphaPercent = cardAlpha
             repo.customBackgroundBlurPercent = blurPercent
             repo.customBackgroundScrimPercent = scrimPercent
+        }
 
+        if (options.homeCardDisplay) {
             data.hideHomeCardDecoration?.let {
                 repo.hideHomeCardDecoration = it
                 hideHomeCardDecoration = it
+            }
+            data.hideHomeCardStatusText?.let {
+                repo.hideHomeCardStatusText = it
+                hideHomeCardStatusText = it
             }
         }
 
@@ -709,8 +794,12 @@ class SettingsViewModel(
         var predictiveBack = repo.enablePredictiveBack
         var swipeDismiss = repo.enableSwipeDismiss
 
-        if (options.importCustomConfig) {
+        if (options.customConfig) {
+            targetUiMode = data.uiMode?.takeIf { it == "miuix" || it == "material" } ?: current.uiMode
+            repo.uiMode = targetUiMode
+
             floatingBottomBar = data.enableFloatingBottomBar ?: current.enableFloatingBottomBar
+
             floatingBottomBarBlur = data.enableFloatingBottomBarBlur ?: current.enableFloatingBottomBarBlur
             navigationBadge = data.enableNavigationBadge ?: current.enableNavigationBadge
             repo.enableFloatingBottomBar = floatingBottomBar
@@ -737,31 +826,44 @@ class SettingsViewModel(
 
         var backgroundUri = current.customBackgroundUri
         var homeCardImagePath = current.homeCardImagePath
-        var hideHomeCardStatusText = current.hideHomeCardStatusText
-        if (options.importImages) {
-            if (imported.backgroundPath != null) {
-                backgroundUri = ImageStorage.replace(context, File(imported.backgroundPath)) ?: ""
-                repo.customBackgroundUri = backgroundUri
-                repo.useSystemWallpaper = false
-                repo.customBackgroundUpdatedAt = System.currentTimeMillis()
+        if (options.backgroundImage && imported.backgroundPath != null) {
+            backgroundUri = ImageStorage.replace(context, File(imported.backgroundPath)) ?: ""
+            repo.customBackgroundUri = backgroundUri
+            repo.useSystemWallpaper = false
+            repo.customBackgroundUpdatedAt = System.currentTimeMillis()
+        } else if (imported.backgroundPath != null) {
+            runCatching { File(imported.backgroundPath).delete() }
+        }
+
+        if (options.homeCardImage && imported.cardBackgroundPath != null) {
+            val cardPath = ImageStorage.replaceHomeCardImage(context, File(imported.cardBackgroundPath)) ?: ""
+            repo.homeCardImagePath = cardPath
+            homeCardImagePath = cardPath
+        } else if (imported.cardBackgroundPath != null) {
+            runCatching { File(imported.cardBackgroundPath).delete() }
+        }
+
+        if (options.stickers && imported.stickerPaths.isNotEmpty()) {
+            val transforms = data.homeCardStickerTransforms.orEmpty()
+            val importedStickers = imported.stickerPaths.mapIndexedNotNull { index, path ->
+                val saved = ImageStorage.importHomeCardSticker(context, File(path))
+                    ?: return@mapIndexedNotNull null
+                HomeCardSticker(
+                    path = saved,
+                    transform = transforms.getOrNull(index)?.coerced() ?: HomeCardStickerTransform(),
+                )
+            }.take(HomeCardSticker.MAX_COUNT)
+            if (importedStickers.isNotEmpty()) {
+                current.homeCardStickers.forEach { ImageStorage.deleteHomeCardSticker(ksuApp, it.path) }
+                repo.homeCardStickers = importedStickers
+                homeCardStickers = importedStickers
             }
-            if (imported.cardBackgroundPath != null) {
-                val cardPath = ImageStorage.replaceHomeCardImage(context, File(imported.cardBackgroundPath)) ?: ""
-                repo.homeCardImagePath = cardPath
-                homeCardImagePath = cardPath
-            }
-            data.hideHomeCardStatusText?.let {
-                repo.hideHomeCardStatusText = it
-                hideHomeCardStatusText = it
-            }
-        } else {
-            // Discard unselected imported images
-            imported.backgroundPath?.let { runCatching { File(it).delete() } }
-            imported.cardBackgroundPath?.let { runCatching { File(it).delete() } }
+        } else if (!options.stickers) {
+            imported.stickerPaths.forEach { runCatching { File(it).delete() } }
         }
 
         var effectiveIconId = current.appIconId
-        if (options.importAppIcon) {
+        if (options.appIcon) {
             val builtinIconIds = setOf(
                 BuiltinAppIcons.DEFAULT_ID,
                 BuiltinAppIcons.KERNELSU_ID,
@@ -783,7 +885,7 @@ class SettingsViewModel(
 
         var effectiveHomeTitle = current.customHomeTitle
         var effectiveCustomTexts = current.customTexts
-        if (options.importCustomTexts) {
+        if (options.customTexts) {
             val textsMap = (data.customTexts ?: emptyMap()).toMutableMap()
             val importedHomeTitle = data.customHomeTitle
             if (importedHomeTitle != null) {
@@ -818,8 +920,9 @@ class SettingsViewModel(
                 homeCardImagePath = homeCardImagePath,
                 hideHomeCardStatusText = hideHomeCardStatusText,
                 hideHomeCardDecoration = hideHomeCardDecoration,
-                useSystemWallpaper = if (options.importImages && imported.backgroundPath != null) false else it.useSystemWallpaper,
-                systemWallpaperPath = if (options.importImages && imported.backgroundPath != null) "" else it.systemWallpaperPath,
+                homeCardStickers = homeCardStickers,
+                useSystemWallpaper = if (options.backgroundImage && imported.backgroundPath != null) false else it.useSystemWallpaper,
+                systemWallpaperPath = if (options.backgroundImage && imported.backgroundPath != null) "" else it.systemWallpaperPath,
                 enableFloatingBottomBar = floatingBottomBar,
                 enableFloatingBottomBarBlur = floatingBottomBarBlur,
                 enableNavigationBadge = navigationBadge,
@@ -850,6 +953,69 @@ class SettingsViewModel(
             }
 
             Toast.makeText(ksuApp, R.string.theme_reset_done, Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    fun clearAllAppearance() {
+        viewModelScope.launch {
+            val defaultBlur = ImageStorage.defaultBackgroundBlurPercent(ksuApp)
+            ImageStorage.clear(ksuApp)
+            ImageStorage.clearHomeCardImage(ksuApp)
+            ImageStorage.clearHomeCardSticker(ksuApp)
+            runCatching { ImageStorage.systemWallpaperFile(ksuApp).delete() }
+
+            repo.customBackgroundUri = ""
+            repo.customBackgroundUpdatedAt = 0L
+            repo.useSystemWallpaper = false
+            repo.homeCardImagePath = ""
+            repo.homeCardStickers = emptyList()
+            repo.cardBackgroundAlphaPercent = ImageStorage.DEFAULT_CARD_ALPHA
+            repo.customBackgroundBlurPercent = defaultBlur
+            repo.customBackgroundScrimPercent = ImageStorage.DEFAULT_BACKGROUND_SCRIM
+            repo.hideHomeCardStatusText = false
+            repo.hideHomeCardDecoration = false
+            repo.themeMode = 0
+            repo.miuixMonet = false
+            repo.keyColor = 0
+            repo.extractColorFromBackground = false
+            repo.colorStyle = PaletteStyle.TonalSpot.name
+            repo.colorSpec = ColorSpec.SpecVersion.SPEC_2025.name
+            repo.customTexts = emptyMap()
+            repo.customHomeTitle = ""
+            repo.appIconId = BuiltinAppIcons.DEFAULT_ID
+            BuiltinAppIcons.apply(
+                context = ksuApp,
+                icon = BuiltinAppIcons.find(BuiltinAppIcons.DEFAULT_ID),
+                dynamicColor = repo.appIconDynamicColor,
+            )
+
+            _uiState.update {
+                it.copy(
+                    customBackgroundUri = "",
+                    customBackgroundUpdatedAt = 0L,
+                    useSystemWallpaper = false,
+                    systemWallpaperPath = "",
+                    isSystemWallpaperBusy = false,
+                    homeCardImagePath = "",
+                    homeCardStickers = emptyList(),
+                    cardBackgroundAlphaPercent = ImageStorage.DEFAULT_CARD_ALPHA,
+                    customBackgroundBlurPercent = defaultBlur,
+                    customBackgroundScrimPercent = ImageStorage.DEFAULT_BACKGROUND_SCRIM,
+                    hideHomeCardStatusText = false,
+                    hideHomeCardDecoration = false,
+                    themeMode = 0,
+                    miuixMonet = false,
+                    keyColor = 0,
+                    extractColorFromBackground = false,
+                    colorStyle = PaletteStyle.TonalSpot.name,
+                    colorSpec = ColorSpec.SpecVersion.SPEC_2025.name,
+                    customTexts = emptyMap(),
+                    customHomeTitle = "",
+                    appIconId = BuiltinAppIcons.DEFAULT_ID,
+                )
+            }
+
+            Toast.makeText(ksuApp, R.string.theme_clear_all_done, Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -942,6 +1108,11 @@ class SettingsViewModel(
     fun setAppearanceSectionExpanded(expanded: Boolean) {
         repo.appearanceSectionExpanded = expanded
         _uiState.update { it.copy(appearanceSectionExpanded = expanded) }
+    }
+
+    fun setHomeCardSectionExpanded(expanded: Boolean) {
+        repo.homeCardSectionExpanded = expanded
+        _uiState.update { it.copy(homeCardSectionExpanded = expanded) }
     }
 
     fun setColorsSectionExpanded(expanded: Boolean) {
@@ -1341,6 +1512,7 @@ class SettingsViewModel(
             homeCardImagePath = homeCardImagePath,
             hideHomeCardStatusText = hideHomeCardStatusText,
             hideHomeCardDecoration = hideHomeCardDecoration,
+            homeCardStickers = homeCardStickers,
             themeMode = themeMode,
             colorStyle = colorStyle,
             colorSpec = colorSpec,
@@ -1349,6 +1521,7 @@ class SettingsViewModel(
             backgroundSectionExpanded = backgroundSectionExpanded,
             themePackageSectionExpanded = themePackageSectionExpanded,
             appearanceSectionExpanded = appearanceSectionExpanded,
+            homeCardSectionExpanded = homeCardSectionExpanded,
             colorsSectionExpanded = colorsSectionExpanded,
             showFullStatus = showFullStatus,
             hideHomeWarnings = hideHomeWarnings,

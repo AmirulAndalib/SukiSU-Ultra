@@ -15,6 +15,7 @@ import com.sukisu.ultra.ui.UiMode
 import com.sukisu.ultra.ui.screen.module.ModuleNameSort
 import com.sukisu.ultra.ui.screen.modulerepo.RepoSort
 import com.sukisu.ultra.ui.util.ImageStorage
+import com.sukisu.ultra.ui.util.HomeCardSticker
 import com.sukisu.ultra.ui.util.BuiltinAppIcons
 import com.sukisu.ultra.ui.util.execKsud
 import com.sukisu.ultra.ui.util.getFeaturePersistValue
@@ -33,6 +34,7 @@ internal const val KEY_CUSTOM_TEXTS = "custom_texts"
 internal const val KEY_HOME_CARD_IMAGE_PATH = "home_card_image_path"
 internal const val KEY_HIDE_HOME_CARD_STATUS_TEXT = "hide_home_card_status_text"
 internal const val KEY_HIDE_HOME_CARD_DECORATION = "hide_home_card_decoration"
+internal const val KEY_HOME_CARD_STICKERS = "home_card_stickers"
 
 /** Prefer soft reboot: always in jailbreak mode, or when the setting is enabled. */
 fun isSoftRebootPreferred(): Boolean =
@@ -112,6 +114,10 @@ class SettingsRepositoryImpl : SettingsRepository {
         get() = prefs.getBoolean("appearance_section_expanded", true)
         set(value) = prefs.edit { putBoolean("appearance_section_expanded", value) }
 
+    override var homeCardSectionExpanded: Boolean
+        get() = prefs.getBoolean("home_card_section_expanded", true)
+        set(value) = prefs.edit { putBoolean("home_card_section_expanded", value) }
+
     override var colorsSectionExpanded: Boolean
         get() = prefs.getBoolean("colors_section_expanded", true)
         set(value) = prefs.edit { putBoolean("colors_section_expanded", value) }
@@ -144,6 +150,18 @@ class SettingsRepositoryImpl : SettingsRepository {
     override var hideHomeCardDecoration: Boolean
         get() = prefs.getBoolean(KEY_HIDE_HOME_CARD_DECORATION, false)
         set(value) = prefs.edit { putBoolean(KEY_HIDE_HOME_CARD_DECORATION, value) }
+
+    override var homeCardStickers: List<HomeCardSticker>
+        get() {
+            val jsonStr = prefs.getString(KEY_HOME_CARD_STICKERS, null) ?: return emptyList()
+            return runCatching {
+                Json.decodeFromString<List<HomeCardSticker>>(jsonStr)
+            }.getOrDefault(emptyList()).take(HomeCardSticker.MAX_COUNT)
+        }
+        set(value) {
+            val jsonStr = Json.encodeToString(value.take(HomeCardSticker.MAX_COUNT))
+            prefs.edit { putString(KEY_HOME_CARD_STICKERS, jsonStr) }
+        }
 
     override var uiMode: String
         get() = prefs.getString("ui_mode", null) ?: initialUiMode().also { mode ->

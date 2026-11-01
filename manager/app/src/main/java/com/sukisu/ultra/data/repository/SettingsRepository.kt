@@ -1,5 +1,7 @@
 package com.sukisu.ultra.data.repository
 
+import com.sukisu.ultra.ui.util.HomeCardSticker
+
 interface SettingsRepository {
     var customBackgroundUri: String
     var customBackgroundUpdatedAt: Long
@@ -19,6 +21,7 @@ interface SettingsRepository {
     var backgroundSectionExpanded: Boolean
     var themePackageSectionExpanded: Boolean
     var appearanceSectionExpanded: Boolean
+    var homeCardSectionExpanded: Boolean
     var colorsSectionExpanded: Boolean
     var customHomeTitle: String
     var customTexts: Map<String, String>
@@ -27,6 +30,7 @@ interface SettingsRepository {
     var hideHomeCardStatusText: Boolean
     /** Hide the check icon (Miuix) or ring decoration (Material) on the home status card. */
     var hideHomeCardDecoration: Boolean
+    var homeCardStickers: List<HomeCardSticker>
     var uiMode: String
     var appLanguage: String
     var checkUpdate: Boolean
