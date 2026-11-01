@@ -902,6 +902,7 @@
     <string name="settings_use_system_wallpaper_reading">Reading the current wallpaper…</string>
     <string name="settings_extract_background_color">Extract Colors from Background</string>
     <string name="settings_extract_background_color_summary">Use the current background image for the theme key color</string>
+    <string name="settings_extract_background_color_disabled">Takes effect once Monet is enabled</string>
     <string name="settings_system_wallpaper_failed">Couldn\'t read the system wallpaper</string>
     <string name="settings_crop_background">Re-crop Background</string>
     <string name="settings_crop_background_summary">Adjust the visible area, or crop with your gallery</string>

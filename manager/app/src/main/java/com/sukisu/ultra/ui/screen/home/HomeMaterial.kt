@@ -166,7 +166,7 @@ fun HomePagerMaterial(
                 WarningCard(stringResource(id = R.string.home_preview_mode), level = WarningLevel.Notice)
             }
             if (state.showAiHomeCard && AiFeatureBridge.isAvailable) {
-                AiFeatureBridge.HomeCardMaterial(onOpenChat = actions.onOpenAi)
+                AiFeatureBridge.HomeCard(onOpenChat = actions.onOpenAi)
             }
             StatsRow(state = state, actions = actions)
             InfoCard(systemInfo = state.systemInfo, showFullStatus = state.showFullStatus)

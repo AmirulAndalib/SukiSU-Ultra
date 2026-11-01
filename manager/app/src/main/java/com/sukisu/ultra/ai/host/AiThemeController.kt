@@ -47,6 +47,11 @@ object AiThemeController : AiThemeService {
             put("color_mode_value", colorMode.value)
             put("miuix_monet", repo.miuixMonet)
             put("key_color", String.format("#%08X", repo.keyColor))
+            put("key_color_source", when {
+                repo.keyColor != 0 -> "manual"
+                repo.extractColorFromBackground -> "background"
+                else -> "system"
+            })
             put("color_style", repo.colorStyle)
             put("color_spec", repo.colorSpec)
             put("custom_home_title", repo.customHomeTitle)
@@ -93,7 +98,13 @@ object AiThemeController : AiThemeService {
             "ui_mode" -> setUiMode(text)
             "color_mode" -> setColorMode(text)
             "miuix_monet" -> setMiuixMonet(text.toBooleanValue())
-            "key_color" -> repo.keyColor = parseColor(text)
+            "key_color" -> {
+                // A manual seed replaces the one derived from the background; #00000000 is the
+                // default pick, which leaves the background (if any) in charge again.
+                val color = parseColor(text)
+                repo.keyColor = color
+                if (color != 0) repo.extractColorFromBackground = false
+            }
             "color_style" -> {
                 val style = PaletteStyle.entries.firstOrNull { it.name.equals(text, true) }
                     ?: throw IllegalArgumentException(
@@ -157,8 +168,13 @@ object AiThemeController : AiThemeService {
                 normalizedKey,
             )
 
-            "extract_color_from_background" ->
-                repo.extractColorFromBackground = text.toBooleanValue()
+            "extract_color_from_background" -> {
+                // Enabling it drops the manual key color (key_color #00000000 is the "default"
+                // pick), so the two seed sources are never on at the same time.
+                val enabled = text.toBooleanValue()
+                repo.extractColorFromBackground = enabled
+                if (enabled) repo.keyColor = 0
+            }
 
             "use_system_wallpaper" -> repo.useSystemWallpaper = text.toBooleanValue()
 
@@ -369,6 +385,11 @@ object AiThemeController : AiThemeService {
             put("color_mode", ColorMode.fromValue(repo.themeMode).name.lowercase())
             put("miuix_monet", repo.miuixMonet)
             put("key_color", String.format("#%08X", repo.keyColor))
+            put("key_color_source", when {
+                repo.keyColor != 0 -> "manual"
+                repo.extractColorFromBackground -> "background"
+                else -> "system"
+            })
             put("color_style", repo.colorStyle)
             put("color_spec", repo.colorSpec)
             put("custom_home_title", repo.customHomeTitle)

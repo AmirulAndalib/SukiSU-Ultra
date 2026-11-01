@@ -4,6 +4,8 @@ import com.sukisu.ultra.ai.api.R as AiR
 import com.sukisu.ultra.ai.api.AiFeatureBridge
 import android.net.Uri
 import java.io.File
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import android.os.Build
 import com.sukisu.ultra.ui.util.customText
 import com.sukisu.ultra.ui.util.CustomTextKey
@@ -98,6 +100,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -138,6 +141,7 @@ import com.sukisu.ultra.ui.theme.keyColorOptions
 import com.sukisu.ultra.ui.theme.rememberKernelSUColorScheme
 import com.sukisu.ultra.ui.util.BuiltinAppIcons
 import com.sukisu.ultra.ui.util.ThemePackageStorage
+import com.sukisu.ultra.ui.viewmodel.SettingsViewModel
 
 @Composable
 fun ColorPaletteScreenMaterial(
@@ -147,14 +151,16 @@ fun ColorPaletteScreenMaterial(
 ) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
     val listState = rememberLazyListState()
-    val uiState = state.uiState
     val currentColorMode = state.currentColorMode
+    // Rows outside the preview still read the shared settings (app icon, predictive back, ...).
+    val uiState by viewModel<SettingsViewModel>().uiState.collectAsStateWithLifecycle()
 
     LaunchedEffect(section) {
         val index = appearanceSectionIndex(section) ?: return@LaunchedEffect
         listState.animateScrollToItem(index)
     }
-    val currentKeyColor = uiState.keyColor
+    // A background-derived seed is not one of the fixed swatches; show it as the default pick.
+    val currentKeyColor = if (state.extractColorFromBackground) 0 else state.keyColor
     val colorStyle = state.currentPaletteStyle
     val colorSpec = state.currentColorSpec
     val haptic = LocalHapticFeedback.current
@@ -162,34 +168,34 @@ fun ColorPaletteScreenMaterial(
     var showResetThemeDialog by rememberSaveable { mutableStateOf(false) }
     var showHomeTitleDialog by rememberSaveable { mutableStateOf(false) }
     var homeTitleDraft by rememberSaveable { mutableStateOf("") }
-    val appearanceExpanded = uiState.backgroundAppearanceExpanded
+    val appearanceExpanded = state.backgroundAppearanceExpanded
     // Kept above the list so the preview reflects the thumb position before the value commits.
     val alphaSliderState = rememberSliderState(
-        value = uiState.cardBackgroundAlphaPercent.toFloat(),
+        value = state.cardBackgroundAlphaPercent.toFloat(),
         trackRange = 10f..91f,
     )
     val blurSliderState = rememberSliderState(
-        value = uiState.customBackgroundBlurPercent.toFloat(),
+        value = state.customBackgroundBlurPercent.toFloat(),
         trackRange = 0f..100f,
     )
     val scrimSliderState = rememberSliderState(
-        value = uiState.customBackgroundScrimPercent.toFloat(),
+        value = state.customBackgroundScrimPercent.toFloat(),
         trackRange = -100f..100f,
     )
     // Imported/reset values change outside the sliders, whose states are remembered.
     LaunchedEffect(
-        uiState.cardBackgroundAlphaPercent,
-        uiState.customBackgroundBlurPercent,
-        uiState.customBackgroundScrimPercent,
+        state.cardBackgroundAlphaPercent,
+        state.customBackgroundBlurPercent,
+        state.customBackgroundScrimPercent,
     ) {
-        if (alphaSliderState.value.roundToInt() != uiState.cardBackgroundAlphaPercent) {
-            alphaSliderState.value = uiState.cardBackgroundAlphaPercent.toFloat()
+        if (alphaSliderState.value.roundToInt() != state.cardBackgroundAlphaPercent) {
+            alphaSliderState.value = state.cardBackgroundAlphaPercent.toFloat()
         }
-        if (blurSliderState.value.roundToInt() != uiState.customBackgroundBlurPercent) {
-            blurSliderState.value = uiState.customBackgroundBlurPercent.toFloat()
+        if (blurSliderState.value.roundToInt() != state.customBackgroundBlurPercent) {
+            blurSliderState.value = state.customBackgroundBlurPercent.toFloat()
         }
-        if (scrimSliderState.value.roundToInt() != uiState.customBackgroundScrimPercent) {
-            scrimSliderState.value = uiState.customBackgroundScrimPercent.toFloat()
+        if (scrimSliderState.value.roundToInt() != state.customBackgroundScrimPercent) {
+            scrimSliderState.value = state.customBackgroundScrimPercent.toFloat()
         }
     }
     val exportThemeLauncher = rememberLauncherForActivityResult(
@@ -241,30 +247,42 @@ fun ColorPaletteScreenMaterial(
             verticalArrangement = Arrangement.spacedBy(13.dp)
         ) {
             item {
-                ThemePreviewMaterial(
-                    spec = ThemePreviewSpec(
+                // Remembered on the committed inputs so a drag elsewhere does not rebuild the
+                // nested theme, but never frozen: every preview input is a key.
+                val previewSpec: ThemePreviewSpec = remember(
+                    currentKeyColor,
+                    isDark,
+                    isAmoled,
+                    colorStyle,
+                    colorSpec,
+                    state.backgroundPath,
+                    state.backgroundUpdatedAt,
+                    state.enableFloatingBottomBarBlur,
+                    state.enableNavigationBadge,
+                    state.pageScale,
+                    state.customHomeTitle,
+                    state.homeCardImagePath,
+                ) {
+                    ThemePreviewSpec(
                         keyColor = currentKeyColor,
                         isDark = isDark,
                         isAmoled = isAmoled,
                         paletteStyle = colorStyle,
                         colorSpec = colorSpec,
-                        backgroundPath = if (uiState.useSystemWallpaper) {
-                            uiState.systemWallpaperPath
-                        } else {
-                            uiState.customBackgroundUri
-                        },
-                        backgroundUpdatedAt = uiState.customBackgroundUpdatedAt,
+                        backgroundPath = state.backgroundPath,
+                        backgroundUpdatedAt = state.backgroundUpdatedAt,
                         cardAlpha = alphaSliderState.value / 100f,
                         backgroundBlurPercent = blurSliderState.value.roundToInt(),
                         backgroundScrimPercent = scrimSliderState.value.roundToInt(),
                         floatingBottomBar = true,
-                        floatingBottomBarBlur = uiState.enableFloatingBottomBarBlur,
-                        navigationBadge = uiState.enableNavigationBadge,
-                        pageScale = uiState.pageScale,
-                        customHomeTitle = uiState.customHomeTitle,
-                        homeCardImagePath = uiState.homeCardImagePath,
-                    ),
-                )
+                        floatingBottomBarBlur = state.enableFloatingBottomBarBlur,
+                        navigationBadge = state.enableNavigationBadge,
+                        pageScale = state.pageScale,
+                        customHomeTitle = state.customHomeTitle,
+                        homeCardImagePath = state.homeCardImagePath,
+                    )
+                }
+                ThemePreviewMaterial(spec = previewSpec)
             }
 
             item {
@@ -273,8 +291,8 @@ fun ColorPaletteScreenMaterial(
                 ) { uri: Uri? ->
                     uri?.let { actions.onPickCustomBackground(context, it) }
                 }
-                val hasCustomBg = uiState.customBackgroundUri.isNotEmpty()
-                val usingSystemWallpaper = uiState.useSystemWallpaper
+                val hasCustomBg = state.customBackgroundUri.isNotEmpty()
+                val usingSystemWallpaper = state.useSystemWallpaper
 
                 SegmentedColumn(
                     modifier = Modifier.padding(horizontal = 16.dp),
@@ -284,14 +302,14 @@ fun ColorPaletteScreenMaterial(
                                 icon = Icons.Rounded.Wallpaper,
                                 title = stringResource(id = R.string.settings_use_system_wallpaper),
                                 summary = stringResource(
-                                    id = if (uiState.isSystemWallpaperBusy) {
+                                    id = if (state.isSystemWallpaperBusy) {
                                         R.string.settings_use_system_wallpaper_reading
                                     } else {
                                         R.string.settings_use_system_wallpaper_summary
                                     }
                                 ),
                                 checked = usingSystemWallpaper,
-                                enabled = !uiState.isSystemWallpaperBusy,
+                                enabled = !state.isSystemWallpaperBusy,
                                 onCheckedChange = { actions.onSetUseSystemWallpaper(context, it) },
                             )
                         }
@@ -326,7 +344,7 @@ fun ColorPaletteScreenMaterial(
                                 }
                             }
                             val hasCustomBgFile = hasCustomBg && !usingSystemWallpaper
-                            val hasCardBgFile = uiState.homeCardImagePath.isNotBlank() && File(uiState.homeCardImagePath).isFile
+                            val hasCardBgFile = state.homeCardImagePath.isNotBlank() && File(state.homeCardImagePath).isFile
                             if (hasCustomBgFile || hasCardBgFile) {
                                 add {
                                     SegmentedListItem(
@@ -350,8 +368,17 @@ fun ColorPaletteScreenMaterial(
                                 SegmentedSwitchItem(
                                     icon = Icons.Rounded.Colorize,
                                     title = stringResource(id = R.string.settings_extract_background_color),
-                                    summary = stringResource(id = R.string.settings_extract_background_color_summary),
-                                    checked = uiState.extractColorFromBackground,
+                                    // Material renders the key color without Monet, but the switch
+                                    // feeds the same setting as the Miuix theme, so say when it
+                                    // takes effect there too.
+                                    summary = stringResource(
+                                        id = if (state.miuixMonet) {
+                                            R.string.settings_extract_background_color_summary
+                                        } else {
+                                            R.string.settings_extract_background_color_disabled
+                                        }
+                                    ),
+                                    checked = state.extractColorFromBackground,
                                     onCheckedChange = actions.onSetExtractColorFromBackground,
                                 )
                             }
@@ -625,7 +652,7 @@ fun ColorPaletteScreenMaterial(
                                 headlineContent = { Text(stringResource(R.string.settings_home_card_image)) },
                                 supportingContent = {
                                     Text(
-                                        if (uiState.homeCardImagePath.isBlank()) {
+                                        if (state.homeCardImagePath.isBlank()) {
                                             stringResource(R.string.settings_home_card_image_default)
                                         } else {
                                             stringResource(R.string.settings_home_card_image_set)
@@ -640,7 +667,7 @@ fun ColorPaletteScreenMaterial(
                                 },
                             )
                         }
-                    ) + if (uiState.homeCardImagePath.isNotBlank()) {
+                    ) + if (state.homeCardImagePath.isNotBlank()) {
                         listOf<@Composable () -> Unit>(
                             {
                                 SegmentedListItem(
@@ -796,7 +823,7 @@ fun ColorPaletteScreenMaterial(
                                 icon = Icons.Rounded.WaterDrop,
                                 title = stringResource(id = R.string.settings_enable_glass),
                                 summary = stringResource(id = R.string.settings_enable_glass_summary),
-                                checked = uiState.enableFloatingBottomBarBlur,
+                                checked = state.enableFloatingBottomBarBlur,
                                 onCheckedChange = actions.onSetEnableFloatingBottomBarBlur
                             )
                         }
@@ -805,7 +832,7 @@ fun ColorPaletteScreenMaterial(
                                 icon = Icons.Rounded.Pin,
                                 title = stringResource(id = R.string.settings_navigation_badge),
                                 summary = stringResource(id = R.string.settings_navigation_badge_summary),
-                                checked = uiState.enableNavigationBadge,
+                                checked = state.enableNavigationBadge,
                                 onCheckedChange = actions.onSetEnableNavigationBadge
                             )
                         }
@@ -866,7 +893,7 @@ fun ColorPaletteScreenMaterial(
             item {
                 TonalCard(modifier = Modifier.padding(horizontal = 16.dp)) {
                     val sliderState = rememberSliderState(
-                        value = uiState.pageScale,
+                        value = state.pageScale,
                         trackRange = 0.8f..1.1f
                     )
 
@@ -917,7 +944,7 @@ fun ColorPaletteScreenMaterial(
             item {
                 TonalCard(modifier = Modifier.padding(horizontal = 16.dp)) {
                     val sliderState = rememberSliderState(
-                        value = uiState.moduleDescriptionMaxLines.toFloat(),
+                        value = state.moduleDescriptionMaxLines.toFloat(),
                         steps = 3,
                         trackRange = 1f..5f
                     )

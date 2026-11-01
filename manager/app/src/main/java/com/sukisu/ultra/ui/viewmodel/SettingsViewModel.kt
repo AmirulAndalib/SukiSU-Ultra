@@ -1,6 +1,7 @@
 package com.sukisu.ultra.ui.viewmodel
 
 import android.content.Context
+import androidx.core.content.edit
 import android.net.Uri
 import android.system.OsConstants
 import android.widget.Toast
@@ -10,7 +11,11 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -21,6 +26,7 @@ import com.sukisu.ultra.R
 import com.sukisu.ultra.data.repository.SettingsRepository
 import com.sukisu.ultra.data.repository.SettingsRepositoryImpl
 import com.sukisu.ultra.ksuApp
+import com.sukisu.ultra.ui.screen.colorpalette.ColorPaletteUiState
 import com.sukisu.ultra.ui.screen.settings.SettingsUiState
 import com.sukisu.ultra.ui.theme.ColorMode
 import com.sukisu.ultra.ui.theme.ThemeController
@@ -48,6 +54,26 @@ class SettingsViewModel(
         homeCardImagePath = repo.homeCardImagePath,
     ))
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
+
+    /**
+     * The appearance page's own state. It is derived from [uiState] only when a setting actually
+     * changes, so enum/string parsing and the preview inputs never run per recomposition.
+     */
+    val colorPaletteState: StateFlow<ColorPaletteUiState> = _uiState
+        .map { it.toColorPaletteUiState() }
+        .distinctUntilChanged()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = _uiState.value.toColorPaletteUiState(),
+        )
+
+    /**
+     * Incremented whenever the background seed is about to be recomputed or replaced. A scoring
+     * run only commits its result while its generation is still current, so a slower run started
+     * by an earlier tap cannot overwrite a newer choice.
+     */
+    private var seedGeneration = 0
 
     init {
         refresh()
@@ -182,7 +208,7 @@ class SettingsViewModel(
                     customBackgroundUpdatedAt = repo.customBackgroundUpdatedAt,
                     useSystemWallpaper = repo.useSystemWallpaper && ImageStorage.systemWallpaperFile(ksuApp).isFile,
                     systemWallpaperPath = "",
-                    extractColorFromBackground = repo.extractColorFromBackground,
+                    extractColorFromBackground = repo.derivesKeyColorFromBackground(),
                     cardBackgroundAlphaPercent = repo.cardBackgroundAlphaPercent,
                     customBackgroundBlurPercent = repo.customBackgroundBlurPercent,
                     customBackgroundScrimPercent = repo.customBackgroundScrimPercent,
@@ -235,7 +261,7 @@ class SettingsViewModel(
         val savedPath = ImageStorage.replace(context, output) ?: return@withContext false
         runCatching { if (output.isFile) output.delete() }
         ImageStorage.discardStaged(sourcePath)
-        val seed = if (repo.extractColorFromBackground) {
+        val seed = if (repo.derivesKeyColorFromBackground()) {
             ImageStorage.extractSeedColor(File(savedPath), repo.keyColor)
         } else {
             repo.keyColor
@@ -277,10 +303,11 @@ class SettingsViewModel(
 
     /** Re-copies the launcher wallpaper when it changed since the last capture. */
     private suspend fun refreshSystemWallpaperCache() {
+        val derivesKeyColor = repo.derivesKeyColorFromBackground()
         val result = ImageStorage.captureSystemWallpaper(ksuApp, force = false)
         if (result.changed) {
             repo.customBackgroundUpdatedAt = System.currentTimeMillis()
-            if (repo.extractColorFromBackground && result.path != null) {
+            if (derivesKeyColor && result.path != null) {
                 repo.keyColor = ImageStorage.extractSeedColor(File(result.path), repo.keyColor)
             }
         }
@@ -304,7 +331,7 @@ class SettingsViewModel(
                 keyColor = repo.keyColor,
                 useSystemWallpaper = useSystemWallpaper && systemWallpaperPath.isNotEmpty(),
                 systemWallpaperPath = systemWallpaperPath,
-                extractColorFromBackground = repo.extractColorFromBackground,
+                extractColorFromBackground = repo.derivesKeyColorFromBackground(),
             )
         }
     }
@@ -337,7 +364,7 @@ class SettingsViewModel(
                     return@launch
                 }
 
-                val keyColor = if (repo.extractColorFromBackground) {
+                val keyColor = if (repo.derivesKeyColorFromBackground()) {
                     withContext(Dispatchers.IO) {
                         ImageStorage.extractSeedColor(File(result.path), repo.keyColor)
                     }
@@ -347,7 +374,7 @@ class SettingsViewModel(
                 val updatedAt = System.currentTimeMillis()
                 repo.useSystemWallpaper = true
                 repo.customBackgroundUpdatedAt = updatedAt
-                if (repo.extractColorFromBackground) repo.keyColor = keyColor
+                if (repo.derivesKeyColorFromBackground()) repo.keyColor = keyColor
                 _uiState.update {
                     it.copy(
                         useSystemWallpaper = true,
@@ -371,23 +398,32 @@ class SettingsViewModel(
     }
 
     /**
-     * Toggles deriving the key color from the background. Enabling it immediately re-seeds from
-     * the active background; disabling leaves the current color in place for manual selection.
+     * Toggles deriving the key color from the background. Enabling it commits the switch right
+     * away and re-seeds from the active background in the background; disabling leaves the
+     * current color in place for manual selection.
      */
     fun setExtractColorFromBackground(enabled: Boolean) {
+        val generation = ++seedGeneration
         repo.extractColorFromBackground = enabled
-        _uiState.update { it.copy(extractColorFromBackground = enabled) }
-        if (!enabled) return
+        if (!enabled) {
+            _uiState.update { it.copy(extractColorFromBackground = false) }
+            return
+        }
+        // The palette keeps the current color until the background has been scored, so there is
+        // no flash through the system default; the pending color is published to the activity.
+        val previousKeyColor = repo.keyColor
+        // Commit the flip first so the switch responds immediately; the seed lands when the
+        // background has been scored (decoding it can take a while on large wallpapers).
+        _uiState.update { it.copy(extractColorFromBackground = true) }
 
-        val backgroundPath = if (repo.useSystemWallpaper) {
-            ImageStorage.systemWallpaperFile(ksuApp).takeIf { it.isFile }?.absolutePath
-        } else {
-            repo.customBackgroundUri.takeIf { it.isNotEmpty() }
-        } ?: return
-        val background = File(backgroundPath).takeIf { it.isFile } ?: return
+        val background = repo.activeBackgroundFile() ?: return
 
         viewModelScope.launch {
-            val seed = ImageStorage.extractSeedColor(background, repo.keyColor)
+            publishPendingSeed(previousKeyColor)
+            val seed = ImageStorage.extractSeedColor(background, previousKeyColor)
+            // Skip the write if another tap or color pick started a newer run in the meantime.
+            if (generation != seedGeneration) return@launch
+            clearPendingSeed()
             repo.keyColor = seed
             _uiState.update { it.copy(keyColor = seed) }
         }
@@ -933,9 +969,29 @@ class SettingsViewModel(
         _uiState.update { it.copy(miuixMonet = enabled, themeMode = newThemeMode) }
     }
 
+    /**
+     * Picks a theme seed by hand. A non-zero color replaces any key color derived from the
+     * background; the default pick turns background extraction back on when a background is
+     * active.
+     */
     fun setKeyColor(color: Int) {
+        val generation = ++seedGeneration
         repo.keyColor = color
-        _uiState.update { it.copy(keyColor = color) }
+        val extract = color == 0 && repo.hasActiveBackground()
+        repo.extractColorFromBackground = extract
+        _uiState.update { it.copy(keyColor = color, extractColorFromBackground = extract) }
+        if (!extract) return
+
+        val background = repo.activeBackgroundFile() ?: return
+        viewModelScope.launch {
+            publishPendingSeed(color)
+            val seed = ImageStorage.extractSeedColor(background, color)
+            // Skip the write if another color pick or the toggle started a newer run.
+            if (generation != seedGeneration) return@launch
+            clearPendingSeed()
+            repo.keyColor = seed
+            _uiState.update { it.copy(keyColor = seed) }
+        }
     }
 
     fun setColorStyle(style: String) {
@@ -1153,4 +1209,86 @@ class SettingsViewModel(
             }
         }
     }
+
+    /**
+     * Tells the activity to stay on [keyColor] until the background seed lands, so a tap that
+     * re-seeds does not re-derive the palette for an intermediate color first. Same file the
+     * activity already listens to for every other appearance change.
+     */
+    private fun publishPendingSeed(keyColor: Int) {
+        ksuApp.getSharedPreferences(MainActivityViewModel.SETTINGS_PREFS, Context.MODE_PRIVATE)
+            .edit() { putInt(MainActivityViewModel.KEY_COLOR_PENDING, keyColor) }
+    }
+
+    private fun clearPendingSeed() {
+        ksuApp.getSharedPreferences(MainActivityViewModel.SETTINGS_PREFS, Context.MODE_PRIVATE)
+            .edit() { remove(MainActivityViewModel.KEY_COLOR_PENDING) }
+    }
+
+    /**
+     * Whether the theme seed currently comes from the background image. A manually picked key
+     * color wins over the stored flag, so both seed sources are never active at once.
+     */
+    private fun SettingsRepository.derivesKeyColorFromBackground(): Boolean =
+        extractColorFromBackground && keyColor == 0
+
+    /** The background image the theme colors and the app background currently use, if any. */
+    private fun SettingsRepository.activeBackgroundFile(): File? {
+        val path = if (useSystemWallpaper) {
+            ImageStorage.systemWallpaperFile(ksuApp).takeIf { it.isFile }?.absolutePath
+        } else {
+            customBackgroundUri.takeIf { it.isNotEmpty() }
+        } ?: return null
+        return File(path).takeIf { it.isFile }
+    }
+
+    private fun SettingsRepository.hasActiveBackground(): Boolean = activeBackgroundFile() != null
+
+    /** One-shot mapping with the same fallbacks the screen used to apply while composing. */
+    private fun SettingsUiState.toColorPaletteUiState(): ColorPaletteUiState {
+        val colorMode = ColorMode.fromValue(themeMode)
+        val resolvedStyle = parsePaletteStyle(colorStyle)
+        val resolvedSpec = parseColorSpec(colorSpec)
+        return ColorPaletteUiState(
+            loading = false,
+            keyColor = keyColor,
+            miuixMonet = miuixMonet,
+            currentColorMode = colorMode,
+            currentPaletteStyle = resolvedStyle ?: PaletteStyle.TonalSpot,
+            currentColorSpec = resolvedSpec ?: ColorSpec.SpecVersion.SPEC_2025,
+            backgroundPath = if (useSystemWallpaper) systemWallpaperPath else customBackgroundUri,
+            backgroundUpdatedAt = customBackgroundUpdatedAt,
+            useSystemWallpaper = useSystemWallpaper,
+            isSystemWallpaperBusy = isSystemWallpaperBusy,
+            customBackgroundUri = customBackgroundUri,
+            cardBackgroundAlphaPercent = cardBackgroundAlphaPercent,
+            customBackgroundBlurPercent = customBackgroundBlurPercent,
+            customBackgroundScrimPercent = customBackgroundScrimPercent,
+            enableFloatingBottomBar = enableFloatingBottomBar,
+            enableFloatingBottomBarBlur = enableFloatingBottomBarBlur,
+            enableNavigationBadge = enableNavigationBadge,
+            pageScale = pageScale,
+            customHomeTitle = customHomeTitle,
+            homeCardImagePath = homeCardImagePath,
+            themeMode = themeMode,
+            colorStyle = colorStyle,
+            colorSpec = colorSpec,
+            extractColorFromBackground = extractColorFromBackground,
+            backgroundAppearanceExpanded = backgroundAppearanceExpanded,
+            showFullStatus = showFullStatus,
+            hideHomeWarnings = hideHomeWarnings,
+            showAiHomeCard = showAiHomeCard,
+            moduleDescriptionMaxLines = moduleDescriptionMaxLines,
+        )
+    }
+
+    /**
+     * Same parsing the page used to do inline, resolved off the composition. Unknown stored
+     * values fall back to the defaults at the call site instead of failing.
+     */
+    private fun parsePaletteStyle(value: String): PaletteStyle? =
+        runCatching { PaletteStyle.valueOf(value) }.getOrNull()
+
+    private fun parseColorSpec(value: String): ColorSpec.SpecVersion? =
+        runCatching { ColorSpec.SpecVersion.valueOf(value) }.getOrNull()
 }

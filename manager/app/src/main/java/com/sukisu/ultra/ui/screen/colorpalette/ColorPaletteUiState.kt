@@ -6,15 +6,47 @@ import com.materialkolor.dynamiccolor.ColorSpec
 import com.sukisu.ultra.ui.screen.settings.SettingsUiState
 import com.sukisu.ultra.ui.theme.ColorMode
 
+/**
+ * Everything the appearance page renders, resolved once in
+ * [com.sukisu.ultra.ui.viewmodel.SettingsViewModel] instead of on every recomposition.
+ *
+ * The fields are plain values, so [SettingsUiState] no longer needs to be read from the screen
+ * to build the preview, and the enum parsing that used to run per recomposition happens when the
+ * setting actually changes.
+ */
 @Immutable
 data class ColorPaletteUiState(
-    val uiState: SettingsUiState,
-    val currentColorMode: ColorMode,
-    val currentPaletteStyle: PaletteStyle,
-    val currentColorSpec: ColorSpec.SpecVersion,
-    val showFullStatus: Boolean,
-    val hideHomeWarnings: Boolean,
-    val showAiHomeCard: Boolean,
+    val loading: Boolean = true,
+    // Preview inputs, all committed values; the in-flight slider drafts are folded in on top.
+    val keyColor: Int = 0,
+    val miuixMonet: Boolean = false,
+    val currentColorMode: ColorMode = ColorMode.SYSTEM,
+    val currentPaletteStyle: PaletteStyle = PaletteStyle.TonalSpot,
+    val currentColorSpec: ColorSpec.SpecVersion = ColorSpec.SpecVersion.SPEC_2025,
+    val backgroundPath: String = "",
+    val backgroundUpdatedAt: Long = 0L,
+    val useSystemWallpaper: Boolean = false,
+    val isSystemWallpaperBusy: Boolean = false,
+    val customBackgroundUri: String = "",
+    val cardBackgroundAlphaPercent: Int = 60,
+    val customBackgroundBlurPercent: Int = 50,
+    val customBackgroundScrimPercent: Int = -35,
+    val enableFloatingBottomBar: Boolean = false,
+    val enableFloatingBottomBarBlur: Boolean = false,
+    val enableNavigationBadge: Boolean = true,
+    val pageScale: Float = 1f,
+    val customHomeTitle: String = "",
+    val homeCardImagePath: String = "",
+    // The rows below the preview.
+    val themeMode: Int = 0,
+    val colorStyle: String = "",
+    val colorSpec: String = "",
+    val extractColorFromBackground: Boolean = false,
+    val backgroundAppearanceExpanded: Boolean = false,
+    val showFullStatus: Boolean = false,
+    val hideHomeWarnings: Boolean = false,
+    val showAiHomeCard: Boolean = false,
+    val moduleDescriptionMaxLines: Int = 4,
 )
 
 @Immutable

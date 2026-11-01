@@ -5,7 +5,11 @@ interface SettingsRepository {
     var customBackgroundUpdatedAt: Long
     /** Use the launcher wallpaper as the app background instead of [customBackgroundUri]. */
     var useSystemWallpaper: Boolean
-    /** Derive the theme key color from the active background image. */
+    /**
+     * Derive the theme key color from the active background image. This and [keyColor] are
+     * mutually exclusive: a non-zero [keyColor] wins, so read through
+     * [com.sukisu.ultra.ui.viewmodel.derivesKeyColorFromBackground] instead of the raw flag.
+     */
     var extractColorFromBackground: Boolean
     var cardBackgroundAlphaPercent: Int
     var customBackgroundBlurPercent: Int

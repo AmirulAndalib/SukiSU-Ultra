@@ -893,6 +893,7 @@
     <string name="settings_use_system_wallpaper_reading">正在读取当前壁纸…</string>
     <string name="settings_extract_background_color">从背景图取色</string>
     <string name="settings_extract_background_color_summary">使用当前背景图作为主题取色来源</string>
+    <string name="settings_extract_background_color_disabled">需要先开启莫奈取色才会生效</string>
     <string name="settings_system_wallpaper_failed">无法读取系统壁纸</string>
     <string name="settings_crop_background">重新剪裁背景</string>
     <string name="settings_crop_background_summary">调整背景可见区域，或使用相册剪裁</string>

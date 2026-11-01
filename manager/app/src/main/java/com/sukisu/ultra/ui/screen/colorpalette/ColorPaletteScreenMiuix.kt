@@ -1,5 +1,6 @@
 package com.sukisu.ultra.ui.screen.colorpalette
 
+import com.sukisu.ultra.ui.component.miuix.MiuixTextButtonAffectedByBackground
 import com.sukisu.ultra.ai.api.R as AiR
 import com.sukisu.ultra.ai.api.AiFeatureBridge
 import android.net.Uri
@@ -101,6 +102,9 @@ import com.sukisu.ultra.ui.util.BlurredBar
 import com.sukisu.ultra.ui.util.BuiltinAppIcons
 import com.sukisu.ultra.ui.util.ThemePackageStorage
 import com.sukisu.ultra.ui.util.rememberBlurBackdrop
+import com.sukisu.ultra.ui.viewmodel.SettingsViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.HorizontalDivider
@@ -154,19 +158,71 @@ fun ColorPaletteScreenMiuix(
     val blurActive = backdrop != null
     val hasCustomBackground = LocalBackgroundImagePath.current.isNotEmpty()
     val barColor = if (blurActive || hasCustomBackground) Color.Transparent else colorScheme.surface
-    val uiState = state.uiState
-    val currentColorMode = state.currentColorMode
-    val isDark = currentColorMode.isDark || currentColorMode.isSystem && isSystemInDarkTheme()
+    val isDark = state.currentColorMode.isDark ||
+        state.currentColorMode.isSystem && isSystemInDarkTheme()
     val context = LocalContext.current
+    // Rows outside the preview still read the shared settings (app icon, predictive back, ...).
+    val uiState by viewModel<SettingsViewModel>().uiState.collectAsStateWithLifecycle()
     // Live drag values: the preview follows the sliders before they commit to the repository.
-    var cardAlphaDraft by remember(uiState.cardBackgroundAlphaPercent) {
-        mutableFloatStateOf(uiState.cardBackgroundAlphaPercent.toFloat())
+    // The drafts start from the committed value but are not reset by it, so a slider does not
+    // jump back while its own commit round-trips.
+    var cardAlphaDraft by remember { mutableFloatStateOf(state.cardBackgroundAlphaPercent.toFloat()) }
+    var blurDraft by remember { mutableFloatStateOf(state.customBackgroundBlurPercent.toFloat()) }
+    var scrimDraft by remember { mutableFloatStateOf(state.customBackgroundScrimPercent.toFloat()) }
+    val sliderCommitted = remember { mutableIntStateOf(0) }
+    // Values changed outside the sliders (import, reset, AI bridge) replace the drafts. Reads the
+    // counter so finishing a drag does not re-run this and yank the thumbs.
+    LaunchedEffect(
+        state.cardBackgroundAlphaPercent,
+        state.customBackgroundBlurPercent,
+        state.customBackgroundScrimPercent,
+        sliderCommitted.intValue,
+    ) {
+        if (cardAlphaDraft.roundToInt() != state.cardBackgroundAlphaPercent) {
+            cardAlphaDraft = state.cardBackgroundAlphaPercent.toFloat()
+        }
+        if (blurDraft.roundToInt() != state.customBackgroundBlurPercent) {
+            blurDraft = state.customBackgroundBlurPercent.toFloat()
+        }
+        if (scrimDraft.roundToInt() != state.customBackgroundScrimPercent) {
+            scrimDraft = state.customBackgroundScrimPercent.toFloat()
+        }
     }
-    var blurDraft by remember(uiState.customBackgroundBlurPercent) {
-        mutableFloatStateOf(uiState.customBackgroundBlurPercent.toFloat())
-    }
-    var scrimDraft by remember(uiState.customBackgroundScrimPercent) {
-        mutableFloatStateOf(uiState.customBackgroundScrimPercent.toFloat())
+    // Same trap as the drafts: a remembered value computed once would freeze the preview at the
+    // first frame, so this is remembered on the committed inputs and reads the live drafts.
+    val previewSpec: ThemePreviewSpec = remember(
+        state.keyColor,
+        state.miuixMonet,
+        state.currentColorMode,
+        state.currentPaletteStyle,
+        state.currentColorSpec,
+        state.backgroundPath,
+        state.backgroundUpdatedAt,
+        state.enableFloatingBottomBar,
+        state.enableFloatingBottomBarBlur,
+        state.enableNavigationBadge,
+        state.pageScale,
+        state.customHomeTitle,
+        state.homeCardImagePath,
+    ) {
+        ThemePreviewSpec(
+            keyColor = state.keyColor,
+            isDark = isDark,
+            miuixMonet = state.miuixMonet,
+            paletteStyle = state.currentPaletteStyle,
+            colorSpec = state.currentColorSpec,
+            backgroundPath = state.backgroundPath,
+            backgroundUpdatedAt = state.backgroundUpdatedAt,
+            cardAlpha = cardAlphaDraft / 100f,
+            backgroundBlurPercent = blurDraft.roundToInt(),
+            backgroundScrimPercent = scrimDraft.roundToInt(),
+            floatingBottomBar = state.enableFloatingBottomBar,
+            floatingBottomBarBlur = state.enableFloatingBottomBarBlur,
+            navigationBadge = state.enableNavigationBadge,
+            pageScale = state.pageScale,
+            customHomeTitle = state.customHomeTitle,
+            homeCardImagePath = state.homeCardImagePath,
+        )
     }
     val exportThemeLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("*/*")
@@ -223,7 +279,7 @@ fun ColorPaletteScreenMiuix(
         val showResetThemeDialog = rememberSaveable { mutableStateOf(false) }
         var showHomeTitleDialog by rememberSaveable { mutableStateOf(false) }
         var homeTitleDraft by rememberSaveable { mutableStateOf("") }
-        val appearanceExpanded = uiState.backgroundAppearanceExpanded
+        val appearanceExpanded = state.backgroundAppearanceExpanded
 
         Box(modifier = if (backdrop != null) Modifier.layerBackdrop(backdrop) else Modifier) {
             LazyColumn(
@@ -238,30 +294,7 @@ fun ColorPaletteScreenMiuix(
             ) {
                 item {
                     Spacer(modifier = Modifier.height(20.dp))
-                    ThemePreviewMiuix(
-                        spec = ThemePreviewSpec(
-                            keyColor = uiState.keyColor,
-                            isDark = isDark,
-                            miuixMonet = uiState.miuixMonet,
-                            paletteStyle = state.currentPaletteStyle,
-                            colorSpec = state.currentColorSpec,
-                            backgroundPath = if (uiState.useSystemWallpaper) {
-                                uiState.systemWallpaperPath
-                            } else {
-                                uiState.customBackgroundUri
-                            },
-                            backgroundUpdatedAt = uiState.customBackgroundUpdatedAt,
-                            cardAlpha = cardAlphaDraft / 100f,
-                            backgroundBlurPercent = blurDraft.roundToInt(),
-                            backgroundScrimPercent = scrimDraft.roundToInt(),
-                            floatingBottomBar = uiState.enableFloatingBottomBar,
-                            floatingBottomBarBlur = uiState.enableFloatingBottomBarBlur,
-                            navigationBadge = uiState.enableNavigationBadge,
-                            pageScale = uiState.pageScale,
-                            customHomeTitle = uiState.customHomeTitle,
-                            homeCardImagePath = uiState.homeCardImagePath,
-                        ),
-                    )
+                    ThemePreviewMiuix(spec = previewSpec)
                     Spacer(modifier = Modifier.height(28.dp))
 
                     val pickImageLauncher = rememberLauncherForActivityResult(
@@ -269,8 +302,8 @@ fun ColorPaletteScreenMiuix(
                     ) { uri: Uri? ->
                         uri?.let { actions.onPickCustomBackground(context, it) }
                     }
-                    val hasCustomBg = uiState.customBackgroundUri.isNotEmpty()
-                    val usingSystemWallpaper = uiState.useSystemWallpaper
+                    val hasCustomBg = state.customBackgroundUri.isNotEmpty()
+                    val usingSystemWallpaper = state.useSystemWallpaper
 
                     AppCard(
                         modifier = Modifier
@@ -282,7 +315,7 @@ fun ColorPaletteScreenMiuix(
                         SwitchPreference(
                             title = stringResource(id = R.string.settings_use_system_wallpaper),
                             summary = stringResource(
-                                id = if (uiState.isSystemWallpaperBusy) {
+                                id = if (state.isSystemWallpaperBusy) {
                                     R.string.settings_use_system_wallpaper_reading
                                 } else {
                                     R.string.settings_use_system_wallpaper_summary
@@ -297,7 +330,7 @@ fun ColorPaletteScreenMiuix(
                                 )
                             },
                             checked = usingSystemWallpaper,
-                            enabled = !uiState.isSystemWallpaperBusy,
+                            enabled = !state.isSystemWallpaperBusy,
                             onCheckedChange = { actions.onSetUseSystemWallpaper(context, it) },
                         )
 
@@ -316,7 +349,7 @@ fun ColorPaletteScreenMiuix(
                                 },
                                 endActions = {
                                     if (hasCustomBg) {
-                                        TextButton(
+                                        MiuixTextButtonAffectedByBackground(
                                             text = stringResource(id = R.string.settings_clear),
                                             onClick = { actions.onClearCustomBackground(context) }
                                         )
@@ -348,7 +381,7 @@ fun ColorPaletteScreenMiuix(
                         }
 
                         val hasCustomBgFile = hasCustomBg && !usingSystemWallpaper
-                        val hasCardBgFile = uiState.homeCardImagePath.isNotBlank() && File(uiState.homeCardImagePath).isFile
+                        val hasCardBgFile = state.homeCardImagePath.isNotBlank() && File(state.homeCardImagePath).isFile
                         if (hasCustomBgFile || hasCardBgFile) {
                             HorizontalDivider()
                             ArrowPreference(
@@ -377,7 +410,15 @@ fun ColorPaletteScreenMiuix(
                             HorizontalDivider()
                             SwitchPreference(
                                 title = stringResource(id = R.string.settings_extract_background_color),
-                                summary = stringResource(id = R.string.settings_extract_background_color_summary),
+                                // Without Monet the Miuix theme ignores the seed entirely, so the
+                                // switch would look enabled while changing nothing.
+                                summary = stringResource(
+                                    id = if (state.miuixMonet) {
+                                        R.string.settings_extract_background_color_summary
+                                    } else {
+                                        R.string.settings_extract_background_color_disabled
+                                    }
+                                ),
                                 startAction = {
                                     Icon(
                                         imageVector = Icons.Rounded.Colorize,
@@ -386,7 +427,7 @@ fun ColorPaletteScreenMiuix(
                                         tint = colorScheme.onBackground
                                     )
                                 },
-                                checked = uiState.extractColorFromBackground,
+                                checked = state.extractColorFromBackground,
                                 onCheckedChange = actions.onSetExtractColorFromBackground,
                             )
                             HorizontalDivider()
@@ -434,6 +475,7 @@ fun ColorPaletteScreenMiuix(
                                         onValueChangeFinished = {
                                             val percent = cardAlphaDraft.roundToInt()
                                             cardAlphaDraft = percent.toFloat()
+                                            sliderCommitted.intValue += 1
                                             actions.onSetCardBackgroundAlphaPercent(percent)
                                         },
                                     )
@@ -450,6 +492,7 @@ fun ColorPaletteScreenMiuix(
                                         onValueChangeFinished = {
                                             val percent = blurDraft.roundToInt()
                                             blurDraft = percent.toFloat()
+                                            sliderCommitted.intValue += 1
                                             actions.onSetCustomBackgroundBlurPercent(percent)
                                         },
                                     )
@@ -466,6 +509,7 @@ fun ColorPaletteScreenMiuix(
                                         onValueChangeFinished = {
                                             val percent = scrimDraft.roundToInt()
                                             scrimDraft = percent.toFloat()
+                                            sliderCommitted.intValue += 1
                                             actions.onSetCustomBackgroundScrimPercent(percent)
                                         },
                                         startLabel = stringResource(id = R.string.settings_background_scrim_darker),
@@ -624,7 +668,7 @@ fun ColorPaletteScreenMiuix(
                         )
                         ArrowPreference(
                             title = stringResource(id = R.string.settings_home_card_image),
-                            summary = if (uiState.homeCardImagePath.isBlank()) {
+                            summary = if (state.homeCardImagePath.isBlank()) {
                                 stringResource(R.string.settings_home_card_image_default)
                             } else {
                                 stringResource(R.string.settings_home_card_image_set)
@@ -643,7 +687,7 @@ fun ColorPaletteScreenMiuix(
                                 )
                             },
                         )
-                        if (uiState.homeCardImagePath.isNotBlank()) {
+                        if (state.homeCardImagePath.isNotBlank()) {
                             ArrowPreference(
                                 title = stringResource(id = R.string.settings_home_card_image_clear),
                                 summary = stringResource(R.string.settings_home_card_image_clear_summary),
@@ -666,7 +710,7 @@ fun ColorPaletteScreenMiuix(
                     )
                     TabRow(
                         tabs = themeItems,
-                        selectedTabIndex = (if (uiState.themeMode >= 3) uiState.themeMode - 3 else uiState.themeMode).coerceIn(0, 2),
+                        selectedTabIndex = (if (state.themeMode >= 3) state.themeMode - 3 else state.themeMode).coerceIn(0, 2),
                         onTabSelected = { index ->
                             actions.onSetThemeMode(index)
                         },
@@ -692,14 +736,14 @@ fun ColorPaletteScreenMiuix(
                                     tint = colorScheme.onBackground
                                 )
                             },
-                            checked = uiState.miuixMonet,
+                            checked = state.miuixMonet,
                             onCheckedChange = {
                                 actions.onSetMiuixMonet(it)
                             }
                         )
 
                         AnimatedVisibility(
-                            visible = uiState.miuixMonet
+                            visible = state.miuixMonet
                         ) {
                             Column {
                                 val colorItems = listOf(
@@ -732,14 +776,18 @@ fun ColorPaletteScreenMiuix(
                                             tint = colorScheme.onBackground
                                         )
                                     },
-                                    selectedIndex = colorValues.indexOf(uiState.keyColor).takeIf { it >= 0 } ?: 0,
+                                    // A background-derived seed is not one of the fixed options, so it
+                                    // shows up as the default pick rather than a stale color.
+                                    selectedIndex = colorValues.indexOf(
+                                        if (state.extractColorFromBackground) 0 else state.keyColor
+                                    ).takeIf { it >= 0 } ?: 0,
                                     onSelectedIndexChange = { index ->
                                         actions.onSetKeyColor(colorValues[index])
                                     }
                                 )
 
                                 AnimatedVisibility(
-                                    visible = uiState.keyColor != 0
+                                    visible = state.keyColor != 0
                                 ) {
                                     Column {
                                         val styles = PaletteStyle.entries
@@ -754,7 +802,7 @@ fun ColorPaletteScreenMiuix(
                                                 )
                                             },
                                             items = styles.map { it.name },
-                                            selectedIndex = styles.indexOfFirst { it.name == uiState.colorStyle }.coerceAtLeast(0),
+                                            selectedIndex = styles.indexOfFirst { it.name == state.colorStyle }.coerceAtLeast(0),
                                             onSelectedIndexChange = { index ->
                                                 actions.onSetColorStyle(styles[index].name)
                                             }
@@ -772,7 +820,7 @@ fun ColorPaletteScreenMiuix(
                                                 )
                                             },
                                             items = specs.map { it.name },
-                                            selectedIndex = specs.indexOfFirst { it.name == uiState.colorSpec }.coerceAtLeast(0),
+                                            selectedIndex = specs.indexOfFirst { it.name == state.colorSpec }.coerceAtLeast(0),
                                             onSelectedIndexChange = { index ->
                                                 actions.onSetColorSpec(specs[index].name)
                                             }
@@ -818,12 +866,12 @@ fun ColorPaletteScreenMiuix(
                                     tint = colorScheme.onBackground
                                 )
                             },
-                            checked = uiState.enableFloatingBottomBar,
+                            checked = state.enableFloatingBottomBar,
                             onCheckedChange = {
                                 actions.onSetEnableFloatingBottomBar(it)
                             }
                         )
-                        AnimatedVisibility(visible = uiState.enableFloatingBottomBar && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        AnimatedVisibility(visible = state.enableFloatingBottomBar && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                             SwitchPreference(
                                 title = stringResource(id = R.string.settings_enable_glass),
                                 summary = stringResource(id = R.string.settings_enable_glass_summary),
@@ -835,7 +883,7 @@ fun ColorPaletteScreenMiuix(
                                         tint = colorScheme.onBackground
                                     )
                                 },
-                                checked = uiState.enableFloatingBottomBarBlur,
+                                checked = state.enableFloatingBottomBarBlur,
                                 onCheckedChange = {
                                     actions.onSetEnableFloatingBottomBarBlur(it)
                                 }
@@ -852,7 +900,7 @@ fun ColorPaletteScreenMiuix(
                                     tint = colorScheme.onBackground
                                 )
                             },
-                            checked = uiState.enableNavigationBadge,
+                            checked = state.enableNavigationBadge,
                             onCheckedChange = {
                                 actions.onSetEnableNavigationBadge(it)
                             }
@@ -917,7 +965,7 @@ fun ColorPaletteScreenMiuix(
                         )
 
 
-                        var sliderValue by remember(uiState.pageScale) { mutableFloatStateOf(uiState.pageScale) }
+                        var sliderValue by remember(state.pageScale) { mutableFloatStateOf(state.pageScale) }
                         ArrowPreference(
                             title = stringResource(id = R.string.settings_page_scale),
                             summary = stringResource(id = R.string.settings_page_scale_summary),
@@ -957,7 +1005,7 @@ fun ColorPaletteScreenMiuix(
                         ScaleDialog(
                             show = showScaleDialog.value,
                             onDismissRequest = { showScaleDialog.value = false },
-                            volumeState = { uiState.pageScale },
+                            volumeState = { state.pageScale },
                             onVolumeChange = {
                                 actions.onSetPageScale(it)
                             }
@@ -970,7 +1018,7 @@ fun ColorPaletteScreenMiuix(
                             .bringIntoViewRequester(sectionRequester("module_description"))
                             .fillMaxWidth(),
                     ) {
-                        var linesValue by remember(uiState.moduleDescriptionMaxLines) { mutableIntStateOf(uiState.moduleDescriptionMaxLines) }
+                        var linesValue by remember(state.moduleDescriptionMaxLines) { mutableIntStateOf(state.moduleDescriptionMaxLines) }
                         BasicComponent(
                             title = stringResource(id = R.string.settings_module_description_max_lines),
                             summary = stringResource(id = R.string.settings_module_description_max_lines_summary),
