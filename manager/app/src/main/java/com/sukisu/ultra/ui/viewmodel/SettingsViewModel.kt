@@ -160,6 +160,8 @@ class SettingsViewModel(
             val autoJailbreak = repo.autoJailbreak
             val useSoftReboot = repo.useSoftReboot
             val isLateLoadMode = Natives.isLateLoadMode
+            val systemWallpaperPath = ImageStorage.systemWallpaperFile(ksuApp)
+                .takeIf { it.isFile }?.absolutePath.orEmpty()
 
             _uiState.update {
                 it.copy(
@@ -225,8 +227,8 @@ class SettingsViewModel(
                     isLateLoadMode = isLateLoadMode,
                     customBackgroundUri = repo.customBackgroundUri,
                     customBackgroundUpdatedAt = repo.customBackgroundUpdatedAt,
-                    useSystemWallpaper = repo.useSystemWallpaper && ImageStorage.systemWallpaperFile(ksuApp).isFile,
-                    systemWallpaperPath = "",
+                    useSystemWallpaper = repo.useSystemWallpaper && systemWallpaperPath.isNotEmpty(),
+                    systemWallpaperPath = systemWallpaperPath,
                     extractColorFromBackground = repo.derivesKeyColorFromBackground(),
                     cardBackgroundAlphaPercent = repo.cardBackgroundAlphaPercent,
                     customBackgroundBlurPercent = repo.customBackgroundBlurPercent,

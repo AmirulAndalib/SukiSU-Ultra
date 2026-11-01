@@ -426,12 +426,14 @@ private fun PreviewBackgroundImage(spec: ThemePreviewSpec) {
     val context = LocalContext.current
     val blurRadius = (ImageStorage.BACKGROUND_BLUR_MAX_RADIUS_DP * spec.backgroundBlurPercent / 100f).dp
     val request = remember(spec.backgroundPath, spec.backgroundUpdatedAt) {
-        // Same recipe as the real background: the mtime parameter invalidates the cache after a
-        // re-crop even though the file path stays the same.
+        // Same recipe as the real background: the mtime is part of the cache key so a re-crop
+        // that keeps the same file path cannot be served from Coil's caches.
         val file = File(spec.backgroundPath)
+        val stamp = file.lastModified()
         ImageRequest.Builder(context)
             .data(file)
-            .setParameter("mtime", file.lastModified(), memoryCacheKey = null)
+            .memoryCacheKey("${file.absolutePath}@$stamp")
+            .diskCacheKey("${file.absolutePath}@$stamp")
             .build()
     }
 

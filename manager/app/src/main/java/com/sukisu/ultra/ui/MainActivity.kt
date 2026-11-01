@@ -504,11 +504,13 @@ class MainActivity : ComponentActivity() {
                         ) { (path, _) ->
                             if (path.isNotEmpty()) {
                                 val context = LocalContext.current
+                                val stamp = File(path).lastModified()
                                 AsyncImage(
                                     model = ImageRequest.Builder(context)
                                         .data(File(path))
                                         .crossfade(true)
-                                        .setParameter("mtime", File(path).lastModified(), memoryCacheKey = null)
+                                        .memoryCacheKey("$path@$stamp")
+                                        .diskCacheKey("$path@$stamp")
                                         .build(),
                                     contentDescription = null,
                                     contentScale = ContentScale.Crop,
