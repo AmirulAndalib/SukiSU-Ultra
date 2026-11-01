@@ -1,6 +1,7 @@
 package com.sukisu.ultra.ui.screen.settings
 
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.saveable.listSaver
 import com.materialkolor.PaletteStyle
 import com.materialkolor.dynamiccolor.ColorSpec
 import com.sukisu.ultra.ui.UiMode
@@ -123,6 +124,35 @@ data class ThemePackageOptions(
     val appIcon: Boolean = true,
     val customTexts: Boolean = true,
     val customConfig: Boolean = true,
+)
+
+val ThemePackageOptionsSaver = listSaver<ThemePackageOptions, Boolean>(
+    save = {
+        listOf(
+            it.colors,
+            it.backgroundImage,
+            it.backgroundAppearance,
+            it.homeCardImage,
+            it.stickers,
+            it.homeCardDisplay,
+            it.appIcon,
+            it.customTexts,
+            it.customConfig,
+        )
+    },
+    restore = {
+        ThemePackageOptions(
+            colors = it[0],
+            backgroundImage = it[1],
+            backgroundAppearance = it[2],
+            homeCardImage = it[3],
+            stickers = it[4],
+            homeCardDisplay = it[5],
+            appIcon = it[6],
+            customTexts = it[7],
+            customConfig = it[8],
+        )
+    },
 )
 
 @Immutable

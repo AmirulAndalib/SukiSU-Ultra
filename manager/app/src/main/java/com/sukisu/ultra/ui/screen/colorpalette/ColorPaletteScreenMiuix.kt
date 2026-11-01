@@ -107,6 +107,7 @@ import com.sukisu.ultra.ui.component.HomeCardStickerThumbnail
 import com.sukisu.ultra.ui.component.themeimport.ThemeExportDialog
 import com.sukisu.ultra.ui.screen.appicon.BuiltinAppIconPreview
 import com.sukisu.ultra.ui.screen.settings.ThemePackageOptions
+import com.sukisu.ultra.ui.screen.settings.ThemePackageOptionsSaver
 import com.sukisu.ultra.ui.theme.LocalBackgroundImagePath
 import com.sukisu.ultra.ui.theme.LocalEnableBlur
 import com.sukisu.ultra.ui.theme.keyColorOptions
@@ -167,6 +168,7 @@ fun ColorPaletteScreenMiuix(
             ?: sectionRequesters[when (anchor) {
                 "color_mode", "theme_mode", "palette" -> "colors"
                 "sticker" -> "home_card"
+                "gestures", "predictive_back", "scale" -> "behavior"
                 else -> anchor
             }]
             ?: sectionRequesters["appearance"]
@@ -255,7 +257,9 @@ fun ColorPaletteScreenMiuix(
         )
     }
     var showExportDialog by rememberSaveable { mutableStateOf(false) }
-    var pendingExportOptions by remember { mutableStateOf(ThemePackageOptions()) }
+    var pendingExportOptions by rememberSaveable(stateSaver = ThemePackageOptionsSaver) {
+        mutableStateOf(ThemePackageOptions())
+    }
     val exportThemeLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("*/*")
     ) { uri: Uri? ->
@@ -353,7 +357,10 @@ fun ColorPaletteScreenMiuix(
             ) {
                 item {
                     Spacer(modifier = Modifier.height(20.dp))
-                    ThemePreviewMiuix(spec = previewSpec)
+                    ThemePreviewMiuix(
+                        spec = previewSpec,
+                        modifier = Modifier.bringIntoViewRequester(sectionRequester("preview")),
+                    )
                     Spacer(modifier = Modifier.height(28.dp))
 
                     val pickImageLauncher = rememberLauncherForActivityResult(

@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
@@ -17,7 +19,7 @@ import androidx.compose.material3.TextButton as MaterialTextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -53,15 +55,15 @@ fun ThemeOptionsDialog(
 ) {
     if (!show) return
 
-    var colors by remember { mutableStateOf(true) }
-    var backgroundImage by remember { mutableStateOf(true) }
-    var backgroundAppearance by remember { mutableStateOf(true) }
-    var homeCardImage by remember { mutableStateOf(true) }
-    var stickers by remember { mutableStateOf(true) }
-    var homeCardDisplay by remember { mutableStateOf(true) }
-    var appIcon by remember { mutableStateOf(true) }
-    var customTexts by remember { mutableStateOf(true) }
-    var customConfig by remember { mutableStateOf(true) }
+    var colors by rememberSaveable { mutableStateOf(true) }
+    var backgroundImage by rememberSaveable { mutableStateOf(true) }
+    var backgroundAppearance by rememberSaveable { mutableStateOf(true) }
+    var homeCardImage by rememberSaveable { mutableStateOf(true) }
+    var stickers by rememberSaveable { mutableStateOf(true) }
+    var homeCardDisplay by rememberSaveable { mutableStateOf(true) }
+    var appIcon by rememberSaveable { mutableStateOf(true) }
+    var customTexts by rememberSaveable { mutableStateOf(true) }
+    var customConfig by rememberSaveable { mutableStateOf(true) }
 
     val options = ThemePackageOptions(
         colors = colors,
@@ -85,6 +87,7 @@ fun ThemeOptionsDialog(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
+                            .verticalScroll(rememberScrollState())
                             .padding(horizontal = 24.dp),
                         verticalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
@@ -180,7 +183,11 @@ fun ThemeOptionsDialog(
                 onDismissRequest = onDismissRequest,
                 title = { MaterialText(title) },
                 text = {
-                    Column(modifier = Modifier.fillMaxWidth()) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .verticalScroll(rememberScrollState())
+                    ) {
                         MaterialText(
                             text = message,
                             style = MaterialTheme.typography.bodyMedium,

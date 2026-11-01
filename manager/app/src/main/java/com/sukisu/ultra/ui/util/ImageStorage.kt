@@ -448,7 +448,7 @@ object ImageStorage {
     suspend fun saveHomeCardSticker(context: Context, uri: Uri): String? = withContext(Dispatchers.IO) {
         runCatching {
             val dir = backgroundsDir(context)
-            val target = File(dir, HOME_CARD_STICKER_PREFIX + "_" + System.currentTimeMillis())
+            val target = File(dir, HOME_CARD_STICKER_PREFIX + "_" + System.currentTimeMillis() + "_" + System.nanoTime())
             context.contentResolver.openInputStream(uri)?.use { input ->
                 target.outputStream().use { output -> input.copyTo(output) }
             } ?: return@runCatching null
@@ -476,7 +476,7 @@ object ImageStorage {
     suspend fun importHomeCardSticker(context: Context, source: File): String? = withContext(Dispatchers.IO) {
         runCatching {
             val dir = backgroundsDir(context)
-            val target = File(dir, HOME_CARD_STICKER_PREFIX + "_" + System.currentTimeMillis())
+            val target = File(dir, HOME_CARD_STICKER_PREFIX + "_" + System.currentTimeMillis() + "_" + System.nanoTime())
             if (!source.renameTo(target)) {
                 source.inputStream().use { input ->
                     target.outputStream().use { output -> input.copyTo(output) }

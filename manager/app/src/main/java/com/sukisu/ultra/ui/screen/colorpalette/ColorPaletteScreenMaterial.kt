@@ -149,6 +149,7 @@ import com.sukisu.ultra.ui.component.material.TopBarBackButton
 import com.sukisu.ultra.ui.component.material.expressiveTopAppBarColors
 import com.sukisu.ultra.ui.screen.appicon.BuiltinAppIconPreview
 import com.sukisu.ultra.ui.screen.settings.ThemePackageOptions
+import com.sukisu.ultra.ui.screen.settings.ThemePackageOptionsSaver
 import com.sukisu.ultra.ui.theme.ColorMode
 import com.sukisu.ultra.ui.theme.backgroundAwareColor
 import com.sukisu.ultra.ui.theme.keyColorOptions
@@ -238,7 +239,9 @@ fun ColorPaletteScreenMaterial(
         }
     }
     var showExportDialog by rememberSaveable { mutableStateOf(false) }
-    var pendingExportOptions by remember { mutableStateOf(ThemePackageOptions()) }
+    var pendingExportOptions by rememberSaveable(stateSaver = ThemePackageOptionsSaver) {
+        mutableStateOf(ThemePackageOptions())
+    }
     val exportThemeLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("*/*")
     ) { uri: Uri? ->

@@ -86,6 +86,9 @@ class SettingsViewModel(
      */
     private var seedGeneration = 0
 
+    /** Invalidates an in-flight wallpaper capture when the option changes or appearance resets. */
+    private var wallpaperGeneration = 0
+
     init {
         refresh()
     }
@@ -324,8 +327,10 @@ class SettingsViewModel(
 
     /** Re-copies the launcher wallpaper when it changed since the last capture. */
     private suspend fun refreshSystemWallpaperCache() {
+        val generation = wallpaperGeneration
         val derivesKeyColor = repo.derivesKeyColorFromBackground()
         val result = ImageStorage.captureSystemWallpaper(ksuApp, force = false)
+        if (generation != wallpaperGeneration) return
         if (result.changed) {
             repo.customBackgroundUpdatedAt = System.currentTimeMillis()
             if (derivesKeyColor && result.path != null) {
@@ -359,6 +364,7 @@ class SettingsViewModel(
 
     fun setUseSystemWallpaper(context: Context, enabled: Boolean) {
         if (!enabled) {
+            wallpaperGeneration++
             repo.useSystemWallpaper = false
             _uiState.update {
                 it.copy(
@@ -370,12 +376,14 @@ class SettingsViewModel(
             return
         }
         if (_uiState.value.isSystemWallpaperBusy) return
+        val generation = ++wallpaperGeneration
         _uiState.update { it.copy(isSystemWallpaperBusy = true) }
         viewModelScope.launch {
             try {
                 val result = withContext(Dispatchers.IO) {
                     ImageStorage.captureSystemWallpaper(context, force = true)
                 }
+                if (generation != wallpaperGeneration) return@launch
                 if (result.path == null) {
                     Toast.makeText(
                         ksuApp,
@@ -519,28 +527,35 @@ class SettingsViewModel(
 
     fun addHomeCardSticker(context: Context, uri: Uri) {
         viewModelScope.launch {
-            val current = _uiState.value.homeCardStickers
-            if (current.size >= HomeCardSticker.MAX_COUNT) {
+            if (_uiState.value.homeCardStickers.size >= HomeCardSticker.MAX_COUNT) {
                 Toast.makeText(context, R.string.settings_home_card_sticker_limit, Toast.LENGTH_SHORT).show()
                 return@launch
             }
             val path = ImageStorage.saveHomeCardSticker(context, uri)
-            if (path != null) {
-                val updated = current + HomeCardSticker(path)
-                repo.homeCardStickers = updated
-                _uiState.update { it.copy(homeCardStickers = updated) }
-            } else {
+            if (path == null) {
                 Toast.makeText(context, R.string.home_card_image_failed, Toast.LENGTH_SHORT).show()
+                return@launch
             }
+            // Re-read after the save: another add/remove may have completed while it ran.
+            val updated = _uiState.value.homeCardStickers + HomeCardSticker(path)
+            if (updated.size > HomeCardSticker.MAX_COUNT) {
+                ImageStorage.deleteHomeCardSticker(ksuApp, path)
+                Toast.makeText(context, R.string.settings_home_card_sticker_limit, Toast.LENGTH_SHORT).show()
+                return@launch
+            }
+            repo.homeCardStickers = updated
+            _uiState.update { it.copy(homeCardStickers = updated) }
         }
     }
 
     fun removeHomeCardSticker(index: Int) {
-        val current = _uiState.value.homeCardStickers
-        val sticker = current.getOrNull(index) ?: return
+        val sticker = _uiState.value.homeCardStickers.getOrNull(index) ?: return
         viewModelScope.launch {
             ImageStorage.deleteHomeCardSticker(ksuApp, sticker.path)
-            val updated = current.filterIndexed { i, _ -> i != index }
+            // Re-read after the delete and remove by path so concurrent edits cannot resurrect it.
+            val current = _uiState.value.homeCardStickers
+            val updated = current.filterNot { it.path == sticker.path }
+            if (updated.size == current.size) return@launch
             repo.homeCardStickers = updated
             _uiState.update { it.copy(homeCardStickers = updated) }
         }
@@ -959,6 +974,9 @@ class SettingsViewModel(
     }
 
     fun clearAllAppearance() {
+        seedGeneration++
+        wallpaperGeneration++
+        clearPendingSeed()
         viewModelScope.launch {
             val defaultBlur = ImageStorage.defaultBackgroundBlurPercent(ksuApp)
             ImageStorage.clear(ksuApp)

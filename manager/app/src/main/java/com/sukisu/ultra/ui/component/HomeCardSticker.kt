@@ -178,6 +178,10 @@ fun HomeCardStickerStage(
         val cardWidth = maxWidth
         val widthPx = with(LocalDensity.current) { cardWidth.toPx() }
         val currentWidthPx by rememberUpdatedState(widthPx)
+        val heightRatio = with(LocalDensity.current) {
+            if (widthPx > 0f) maxHeight.toPx() / widthPx else 1f
+        }
+        val currentHeightRatio by rememberUpdatedState(heightRatio)
         Box(modifier = Modifier.fillMaxSize()) {
             Row(
                 modifier = Modifier
@@ -219,20 +223,31 @@ fun HomeCardStickerStage(
                     // keeps pointer hit-testing stable after the rotation slider changes.
                     val gestureModifier = if (index == selectedIndex) {
                         Modifier.pointerInput(index) {
+                            var dragging: HomeCardStickerTransform? = null
                             detectDragGestures(
-                                onDragEnd = {
-                                    currentStickers.getOrNull(index)?.transform?.let { latest ->
-                                        currentOnTransformCommit(index, latest)
-                                    }
+                                onDragStart = {
+                                    dragging = currentStickers.getOrNull(index)?.transform
                                 },
+                                onDragEnd = {
+                                    dragging?.let { currentOnTransformCommit(index, it) }
+                                    dragging = null
+                                },
+                                onDragCancel = { dragging = null },
                             ) { change, dragAmount ->
                                 change.consume()
-                                val latest = currentStickers.getOrNull(index)?.transform
+                                val baseTransform = dragging
+                                    ?: currentStickers.getOrNull(index)?.transform
                                     ?: return@detectDragGestures
-                                val updated = latest.copy(
-                                    offsetX = latest.offsetX + dragAmount.x / currentWidthPx,
-                                    offsetY = latest.offsetY + dragAmount.y / currentWidthPx,
+                                // Accumulate locally: recomposition lags individual pointer moves,
+                                // so deriving every delta from the committed value loses motion.
+                                val maxOffsetY = (currentHeightRatio - 0.5f).coerceAtLeast(-0.5f)
+                                val updated = baseTransform.copy(
+                                    offsetX = (baseTransform.offsetX + dragAmount.x / currentWidthPx)
+                                        .coerceIn(-0.5f, 0.5f),
+                                    offsetY = (baseTransform.offsetY + dragAmount.y / currentWidthPx)
+                                        .coerceIn(-0.5f, maxOffsetY),
                                 ).coerced()
+                                dragging = updated
                                 currentOnTransformChange(index, updated)
                             }
                         }

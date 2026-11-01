@@ -162,7 +162,7 @@ object ThemePackageStorage {
             }
             var tempBackground: File? = null
             var tempCardBackground: File? = null
-            val tempStickers = mutableListOf<Pair<Int, File>>()
+            val tempStickers = mutableMapOf<Int, File>()
             try {
                 var themeText: String? = null
                 var backgroundExtracted = false
@@ -193,10 +193,13 @@ object ThemePackageStorage {
                                 name.startsWith(CARD_STICKER_ENTRY_PREFIX) -> {
                                     val index = name.removePrefix(CARD_STICKER_ENTRY_PREFIX).toIntOrNull()
                                     if (index != null && index in 0 until HomeCardSticker.MAX_COUNT) {
+                                        if (tempStickers.containsKey(index)) {
+                                            error("Duplicate card sticker entry")
+                                        }
                                         val sticker = File.createTempFile(
                                             "theme_import_sticker_", ".tmp", context.cacheDir
                                         )
-                                        tempStickers.add(index to sticker)
+                                        tempStickers[index] = sticker
                                         sticker.outputStream().use { copyLimited(zip, it, MAX_BACKGROUND_BYTES) }
                                     }
                                 }
@@ -222,6 +225,9 @@ object ThemePackageStorage {
                 }
 
                 val hasCardBackground = data.hasCardBackground ?: cardBackgroundExtracted
+                if (hasCardBackground && !cardBackgroundExtracted) {
+                    error("Card background image is missing")
+                }
                 if (hasCardBackground && tempCardBackground != null) {
                     val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
                     BitmapFactory.decodeFile(tempCardBackground.absolutePath, bounds)
@@ -238,9 +244,9 @@ object ThemePackageStorage {
                     }
                 }
 
-                val orderedStickerPaths = tempStickers
-                    .sortedBy { it.first }
-                    .map { it.second.absolutePath }
+                val orderedStickerPaths = tempStickers.entries
+                    .sortedBy { it.key }
+                    .map { it.value.absolutePath }
 
                 ImportedTheme(
                     data = data,
