@@ -41,7 +41,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
@@ -77,6 +76,7 @@ import com.sukisu.ultra.ui.util.customText
 import com.sukisu.ultra.ui.util.CustomTextKey
 import com.sukisu.ultra.ui.theme.isInDarkTheme
 import com.sukisu.ultra.ui.util.BlurredBar
+import com.sukisu.ultra.ui.util.drawPainterCover
 import com.sukisu.ultra.ui.util.module.LatestVersionInfo
 import com.sukisu.ultra.ui.util.rememberBlurBackdrop
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
@@ -349,7 +349,7 @@ private fun ActiveStatusCard(
             .clip(RoundedCornerShape(CardDefaults.CornerRadius))
             .then(
                 if (cardImagePainter != null) {
-                    Modifier.drawBehind { with(cardImagePainter) { draw(size) } }
+                    Modifier.drawPainterCover(cardImagePainter)
                 } else {
                     Modifier
                 }

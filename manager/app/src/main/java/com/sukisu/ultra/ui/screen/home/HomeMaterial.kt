@@ -91,6 +91,7 @@ import com.sukisu.ultra.ai.api.AiFeatureBridge
 import com.sukisu.ultra.ui.util.module.LatestVersionInfo
 import com.sukisu.ultra.ui.util.customText
 import com.sukisu.ultra.ui.util.CustomTextKey
+import com.sukisu.ultra.ui.util.drawPainterCover
 
 private val HeroShape = RoundedCornerShape(28.dp)
 private val TileShape = RoundedCornerShape(22.dp)
@@ -310,7 +311,7 @@ private fun ActiveStatusCard(
             .clip(HeroShape)
             .then(
                 if (cardImagePainter != null) {
-                    Modifier.drawBehind { with(cardImagePainter) { draw(size) } }
+                    Modifier.drawPainterCover(cardImagePainter)
                 } else {
                     Modifier
                 }

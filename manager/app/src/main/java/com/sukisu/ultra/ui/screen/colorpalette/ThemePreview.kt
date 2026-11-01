@@ -117,6 +117,7 @@ import com.sukisu.ultra.ui.theme.backgroundAwareColor
 import com.sukisu.ultra.ui.theme.effectiveFor
 import com.sukisu.ultra.ui.theme.rememberKernelSUColorScheme
 import com.sukisu.ultra.ui.util.ImageStorage
+import com.sukisu.ultra.ui.util.drawPainterCover
 import top.yukonga.miuix.kmp.basic.Badge as MiuixBadge
 import top.yukonga.miuix.kmp.basic.BadgedBox as MiuixBadgedBox
 import top.yukonga.miuix.kmp.basic.CardDefaults
@@ -615,7 +616,7 @@ private fun MiuixPreviewHeroCard(spec: ThemePreviewSpec) {
             .clip(RoundedCornerShape(CardDefaults.CornerRadius))
             .then(
                 if (cardImagePainter != null) {
-                    Modifier.drawBehind { with(cardImagePainter) { draw(size) } }
+                    Modifier.drawPainterCover(cardImagePainter)
                 } else {
                     Modifier
                 }
@@ -1002,7 +1003,7 @@ private fun MaterialPreviewHeroCard(spec: ThemePreviewSpec) {
             .clip(heroShape)
             .then(
                 if (cardImagePainter != null) {
-                    Modifier.drawBehind { with(cardImagePainter) { draw(size) } }
+                    Modifier.drawPainterCover(cardImagePainter)
                 } else {
                     Modifier
                 }
